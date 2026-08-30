@@ -54,8 +54,12 @@ function isMemoryLimitError(error: unknown): boolean {
 }
 
 async function reclaimStaleSandboxes(): Promise<void> {
-  const maxAgeMinutes = Number(process.env.DAYTONA_CAPACITY_CLEANUP_MINUTES ?? 15)
-  const cutoff = Date.now() - (Number.isFinite(maxAgeMinutes) && maxAgeMinutes > 0 ? maxAgeMinutes : 15) * 60_000
+  // A capacity retry means the previous previews are blocking the next launch.
+  // By default, reclaim them immediately. Set a positive value only when a
+  // deployment deliberately wants to preserve previews younger than that age.
+  const configuredAge = Number(process.env.DAYTONA_CAPACITY_CLEANUP_MINUTES ?? 0)
+  const maxAgeMinutes = Number.isFinite(configuredAge) && configuredAge >= 0 ? configuredAge : 0
+  const cutoff = Date.now() - maxAgeMinutes * 60_000
   const daytona = getDaytona()
 
   for await (const sandbox of daytona.list()) {
