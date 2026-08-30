@@ -4,7 +4,10 @@ const daytona = new Daytona()
 
 export async function createSandbox(): Promise<Sandbox> {
   try {
-    return await daytona.create()
+    return await daytona.create({
+      image: 'node:22',
+      resources: { cpu: 2, memory: 4, disk: 20 },
+    })
   } catch (err) {
     throw new Error(`Failed to create sandbox: ${err}`)
   }
@@ -38,7 +41,8 @@ export async function startBackground(
 
 export async function cloneRepo(sandbox: Sandbox, githubUrl: string): Promise<void> {
   try {
-    await sandbox.git.clone(githubUrl, 'workspace/repo')
+    // depth=1 shallow clone — avoids timeouts on large repos with long git histories
+    await sandbox.git.clone(githubUrl, 'workspace/repo', undefined, undefined, undefined, undefined, undefined, 1)
   } catch (err) {
     throw new Error(`Failed to clone ${githubUrl}: ${err}`)
   }
