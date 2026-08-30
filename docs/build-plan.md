@@ -176,6 +176,25 @@ npm ci
 npx vite --host 0.0.0.0 --port 5173 --base /
 ```
 
+### Business demo — TailAdmin dashboard
+
+Use [TailAdmin/free-react-tailwind-admin-dashboard](https://github.com/TailAdmin/free-react-tailwind-admin-dashboard) when a business-software story lands better than a visual one.
+
+A polished MIT-licensed ecommerce admin dashboard (React 19, Tailwind v4): KPI cards, sales charts, a monthly-target gauge, calendar, tables, and dark mode on first paint. Plain `"dev": "vite"`, npm lockfile v3, no backend, environment variables, or base-path override. Verified locally: `npm ci` succeeds and the dev server binds `0.0.0.0:5173`.
+
+**Caution:** cold `npm ci` took about 2 minutes 16 seconds (347 packages) — far slower than the planets repository (~8 seconds). Use it as a second launch while narrating, not the opener.
+
+```bash
+npm ci
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+On stage: point at the KPI cards and sales chart, toggle dark mode, open Calendar and drag-create an event.
+
+### Business demo alternative — shadcn dashboard
+
+Use [shadcndashboard/shadcndashboard](https://github.com/shadcndashboard/shadcndashboard) only if TailAdmin fails. MIT, plain `vite` dev script, verified locally on `0.0.0.0:5173` — but ~38 MB clone, cold `npm ci` took about 3 minutes 8 seconds (577 packages), and its Notes/Tickets pages rely on a mock service worker that requires a secure context, so demo only the dashboard view.
+
 ### Repository rehearsal rule
 
 The final demo repository is the primary only after it has launched from a new Daytona sandbox three consecutive times through the complete Try SDK interface. If it does not pass that test, switch to Backup 1 rather than debugging visual code or dependencies close to submission.
