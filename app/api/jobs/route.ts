@@ -57,8 +57,8 @@ async function runPipeline(job: Job) {
     await startBackground(activeSandbox, 'app', project.startCmd)
     await waitForHttpReady(activeSandbox, project.port)
 
-    const { url: previewUrl, token: previewToken } = await getPreviewUrl(activeSandbox, project.port)
-    await updateJob(job.id, { previewUrl, previewToken })
+    const { url: previewUrl, token: previewToken, proxyUrl: previewProxyUrl, proxyToken: previewProxyToken } = await getPreviewUrl(activeSandbox, project.port)
+    await updateJob(job.id, { previewUrl, previewToken, previewProxyUrl, previewProxyToken })
     await emitStatus(job.id, 'READY', `App is live at ${previewUrl}`)
     keepSandbox = true
 

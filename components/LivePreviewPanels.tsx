@@ -99,12 +99,14 @@ export function InlinePreview() {
   }, [])
 
   if (!preview) return null
+  const proxyDomain = process.env.NEXT_PUBLIC_PREVIEW_PROXY_DOMAIN?.trim().replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const iframeUrl = proxyDomain ? `https://${preview.jobId}.${proxyDomain}/` : preview.previewUrl
   return (
     <section className="mx-auto max-w-[1080px] px-6 pb-12" aria-label="Live repository preview">
       <div className="overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22]">
         <div className="flex items-center justify-between gap-3 border-b border-[#21262d] bg-[#1c2128] px-4 py-3"><span className="font-mono text-xs text-[#8b949e]">preview · live sandbox</span><span className="text-xs font-semibold text-[#3fb950]">● Live</span></div>
-        <div className="relative h-[min(78vh,56rem)] min-h-[38rem] bg-[#010409]"><iframe title="Repository preview" src={preview.previewUrl} className="absolute inset-0 h-full w-full border-0" allow="fullscreen" /></div>
-        <div className="flex flex-wrap gap-2 border-t border-[#21262d] bg-[#1c2128] px-4 py-3"><a href={preview.previewUrl} target="_blank" rel="noreferrer" className="rounded-md bg-[#238636] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2ea043]">Open preview</a><button type="button" onClick={async () => { await navigator.clipboard.writeText(preview.previewUrl); setCopied(true); window.setTimeout(() => setCopied(false), 2000) }} className="rounded-md border border-[#30363d] px-3 py-1.5 text-xs text-[#c9d1d9] hover:border-[#8b949e]">{copied ? 'Copied' : 'Copy link'}</button></div>
+        <div className="relative h-[min(78vh,56rem)] min-h-[38rem] bg-[#010409]"><iframe title="Repository preview" src={iframeUrl} className="absolute inset-0 h-full w-full border-0" allow="fullscreen" /></div>
+        <div className="flex flex-wrap gap-2 border-t border-[#21262d] bg-[#1c2128] px-4 py-3"><a href={iframeUrl} target="_blank" rel="noreferrer" className="rounded-md bg-[#238636] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2ea043]">Open preview</a><button type="button" onClick={async () => { await navigator.clipboard.writeText(iframeUrl); setCopied(true); window.setTimeout(() => setCopied(false), 2000) }} className="rounded-md border border-[#30363d] px-3 py-1.5 text-xs text-[#c9d1d9] hover:border-[#8b949e]">{copied ? 'Copied' : 'Copy link'}</button></div>
       </div>
     </section>
   )

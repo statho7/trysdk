@@ -1,0 +1,11 @@
+{
+  "name": "trysdk-preview-proxy",
+  "private": true,
+  "scripts": {
+    "check": "wrangler deploy --dry-run"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "wrangler": "^4.0.0"
+  }
+}

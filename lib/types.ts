@@ -54,5 +54,7 @@ export interface Job {
   port?: number
   previewUrl?: string
   previewToken?: string
+  previewProxyUrl?: string
+  previewProxyToken?: string
   result?: EvalResult
 }

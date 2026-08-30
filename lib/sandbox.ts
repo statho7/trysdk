@@ -141,12 +141,21 @@ export async function downloadFile(sandbox: Sandbox, remotePath: string): Promis
 export async function getPreviewUrl(
   sandbox: Sandbox,
   port: number
-): Promise<{ url: string; token: string }> {
+): Promise<{ url: string; token: string; proxyUrl: string; proxyToken: string }> {
   try {
-    // Signed URLs are designed for browser embeds: no custom header or proxy
-    // warning acknowledgement is required, and access expires automatically.
-    const preview = await sandbox.getSignedPreviewUrl(port, 3600)
-    return { url: preview.url ?? '', token: preview.token ?? '' }
+    // The signed URL is a safe direct-link fallback. The standard URL and its
+    // separate token are retained for the custom preview proxy, which can send
+    // Daytona's trusted skip-warning header without exposing credentials.
+    const [signedPreview, proxyPreview] = await Promise.all([
+      sandbox.getSignedPreviewUrl(port, 3600),
+      sandbox.getPreviewLink(port),
+    ])
+    return {
+      url: signedPreview.url ?? '',
+      token: signedPreview.token ?? '',
+      proxyUrl: proxyPreview.url ?? '',
+      proxyToken: proxyPreview.token ?? '',
+    }
   } catch (err) {
     throw new Error(`Failed to get preview URL for port ${port}: ${err}`)
   }
