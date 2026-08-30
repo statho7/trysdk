@@ -39,7 +39,10 @@ function useLiveJob() {
           window.dispatchEvent(new CustomEvent('trysdk:preview', { detail: { jobId, previewUrl: match[0] } }))
         }
       }
-      if (['ERROR', 'UNSUPPORTED', 'DESTROYED'].includes(next.status)) stream.close()
+      if (['READY', 'ERROR', 'UNSUPPORTED', 'DESTROYED'].includes(next.status)) {
+        window.dispatchEvent(new CustomEvent('trysdk:job-finished', { detail: { status: next.status } }))
+        stream.close()
+      }
     }
     stream.onerror = () => stream.close()
     return () => stream.close()
@@ -74,7 +77,12 @@ export function LiveLaunchPanel() {
             </li>
           )
         })}
-        {last && ['ERROR', 'UNSUPPORTED'].includes(last.status) && <li className="mt-1 border-t border-[#f85149]/30 pt-3 text-sm text-[#f85149]">{last.message}</li>}
+        {last && ['ERROR', 'UNSUPPORTED'].includes(last.status) && (
+          <li className="mt-1 border-t border-[#f85149]/30 pt-3">
+            <p className="text-sm font-semibold text-[#f85149]">{last.status === 'UNSUPPORTED' ? 'This repository is not supported yet' : 'Preview could not be created'}</p>
+            <p className="mt-1 text-sm leading-5 text-[#c9d1d9]">{last.message}</p>
+          </li>
+        )}
       </ol>
     </aside>
   )

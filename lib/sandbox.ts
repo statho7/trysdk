@@ -9,6 +9,13 @@ function getAutoStopMinutes(): number {
   return Number.isFinite(configured) && configured > 0 ? configured : 30
 }
 
+export class PreviewCapacityError extends Error {
+  constructor() {
+    super('Preview capacity is full. Close or destroy an existing preview, then try again.')
+    this.name = 'PreviewCapacityError'
+  }
+}
+
 export async function createSandbox(): Promise<Sandbox> {
   try {
     return await getDaytona().create({
@@ -28,6 +35,11 @@ export async function createSandbox(): Promise<Sandbox> {
           autoDeleteInterval: 0,
         })
       } catch (retryError) {
+        // The provider message includes account-level limits and is not useful to
+        // a person launching a preview. Keep it in server logs for diagnosis,
+        // while returning a small, actionable product error to the UI.
+        console.error('Daytona preview capacity is still exhausted after cleanup:', retryError)
+        if (isMemoryLimitError(retryError)) throw new PreviewCapacityError()
         throw new Error(`Failed to create sandbox after reclaiming stale previews: ${retryError}`)
       }
     }
