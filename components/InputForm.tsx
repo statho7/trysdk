@@ -5,6 +5,12 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+const demoRepositories = [
+  { url: 'https://github.com/dgreenheck/threejs-procedural-planets', label: 'Procedural Planets — primary demo' },
+  { url: 'https://github.com/royalbhati/sqltoerdiagram', label: 'SQL to ER Diagram — reliable backup' },
+  { url: 'https://github.com/Leonxlnx/sakura-realm', label: 'Sakura Realm — visual backup' },
+]
+
 export function InputForm() {
   const router = useRouter()
   const [githubUrl, setGithubUrl] = useState('')
@@ -12,6 +18,7 @@ export function InputForm() {
   const [error, setError] = useState('')
   const hasUrl = githubUrl.trim().length > 0
   const isGithubUrl = /^https:\/\/github\.com\/[^/]+\/[^/?#]+\/?$/i.test(githubUrl.trim())
+  const selectedDemoUrl = demoRepositories.some(repo => repo.url === githubUrl) ? githubUrl : ''
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -66,6 +73,22 @@ export function InputForm() {
             ? 'Use the repository URL, for example https://github.com/owner/repository.'
             : 'Public Vite frontend repositories are the most reliable today.'}
       </p>
+      <div className="flex flex-col gap-1.5 border-t border-[#21262d] pt-4 sm:flex-row sm:items-center sm:gap-3">
+        <label htmlFor="demo-repository" className="shrink-0 text-xs font-medium text-[#8b949e]">
+          Or choose a demo repository
+        </label>
+        <select
+          id="demo-repository"
+          value={selectedDemoUrl}
+          onChange={event => setGithubUrl(event.target.value)}
+          className="h-8 min-w-0 rounded-md border border-[#30363d] bg-[#161b22] px-2 text-xs text-[#c9d1d9] outline-none transition-colors hover:border-[#8b949e] focus:border-[#58a6ff] sm:flex-1"
+        >
+          <option value="">Select a prepared repository</option>
+          {demoRepositories.map(repo => (
+            <option key={repo.url} value={repo.url}>{repo.label}</option>
+          ))}
+        </select>
+      </div>
     </form>
   )
 }
