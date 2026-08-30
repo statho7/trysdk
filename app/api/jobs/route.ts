@@ -1,18 +1,17 @@
 import { waitUntil } from '@vercel/functions'
 import { createJob, emitStatus, updateJob } from '@/lib/jobs'
-import { createSandbox, cloneRepo, execCommand, startBackground, getPreviewUrl, uploadFile, downloadFile, deleteSandbox } from '@/lib/sandbox'
+import { createSandbox, cloneRepo, execCommand, startBackground, getPreviewUrl, deleteSandbox } from '@/lib/sandbox'
 import { detectStack } from '@/lib/detector'
-import { evaluateScreenshots } from '@/lib/evaluator'
-import type { Job, Screenshot } from '@/lib/types'
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import type { Job } from '@/lib/types'
 
 async function runPipeline(job: Job) {
   let sandbox = null
+  let keepSandbox = false
   try {
     // 1. Clone
     emitStatus(job.id, 'CLONING', 'Cloning repository into sandbox...')
     sandbox = await createSandbox()
+    updateJob(job.id, { sandboxId: sandbox.id })
     await cloneRepo(sandbox, job.githubUrl)
 
     // 2. Detect stack + install deps
@@ -31,34 +30,12 @@ async function runPipeline(job: Job) {
     const { url: previewUrl, token: previewToken } = await getPreviewUrl(sandbox, stack.port)
     updateJob(job.id, { previewUrl, previewToken })
     emitStatus(job.id, 'READY', `App is live at ${previewUrl}`)
-
-    // 4. Run scout
-    // TODO: Uncomment when scout script execution is wired up
-    // const scoutScript = readFileSync(join(process.cwd(), 'scripts/scout.playwright.ts'), 'utf-8')
-    // await uploadFile(sandbox, scoutScript, '/workspace/scout.ts')
-    // await execCommand(sandbox, 'npm install -g tsx playwright && npx playwright install chromium', 300)
-    // await execCommand(sandbox, `APP_URL=${previewUrl} PREVIEW_TOKEN=${previewToken} OUTPUT_DIR=/tmp/shots tsx /workspace/scout.ts`, 120)
-
-    emitStatus(job.id, 'ANALYZING', 'Agent is analyzing the app...')
-
-    // TODO: Download real screenshots from sandbox
-    // const routesJson = await downloadFile(sandbox, '/tmp/shots/routes.json')
-    // const routes = JSON.parse(routesJson.toString()) as { route: string; filePath: string }[]
-    // const screenshots: Screenshot[] = await Promise.all(routes.map(async ({ route, filePath }) => {
-    //   const imgBuffer = await downloadFile(sandbox, filePath)
-    //   return { route, description: route, base64: imgBuffer.toString('base64') }
-    // }))
-
-    const screenshots: Screenshot[] = [] // TODO: replace with real screenshots
-
-    const result = await evaluateScreenshots(job.useCase, screenshots)
-    updateJob(job.id, { result: { ...result, jobId: job.id } })
-    emitStatus(job.id, 'DONE', 'Evaluation complete')
+    keepSandbox = true
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     emitStatus(job.id, 'ERROR', `Pipeline failed: ${message}`)
   } finally {
-    if (sandbox) await deleteSandbox(sandbox)
+    if (sandbox && !keepSandbox) await deleteSandbox(sandbox)
   }
 }
 

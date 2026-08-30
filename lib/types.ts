@@ -5,6 +5,8 @@ export type JobStatus =
   | 'READY'
   | 'ANALYZING'
   | 'DONE'
+  | 'DESTROYING'
+  | 'DESTROYED'
   | 'ERROR'
 
 export interface StatusEvent {
@@ -41,6 +43,7 @@ export interface Job {
   useCase: string
   status: JobStatus
   createdAt: string
+  sandboxId?: string
   previewUrl?: string
   previewToken?: string
   result?: EvalResult

@@ -6,7 +6,7 @@ export async function createSandbox(): Promise<Sandbox> {
   try {
     return await daytona.create({
       image: 'node:22',
-      resources: { cpu: 2, memory: 4, disk: 20 },
+      resources: { cpu: 2, memory: 4, disk: 10 },
     })
   } catch (err) {
     throw new Error(`Failed to create sandbox: ${err}`)
@@ -87,5 +87,14 @@ export async function deleteSandbox(sandbox: Sandbox): Promise<void> {
   } catch (err) {
     // Swallow — deletion is cleanup; a failure here shouldn't mask the real error
     console.error(`Failed to delete sandbox ${sandbox.id}: ${err}`)
+  }
+}
+
+export async function deleteSandboxById(sandboxId: string): Promise<void> {
+  try {
+    const sandbox = await daytona.get(sandboxId)
+    await sandbox.delete()
+  } catch (err) {
+    throw new Error(`Failed to delete sandbox ${sandboxId}: ${err}`)
   }
 }

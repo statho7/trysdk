@@ -7,28 +7,30 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   READY: 'App live',
   ANALYZING: 'Analyzing',
   DONE: 'Done',
+  DESTROYING: 'Destroying sandbox',
+  DESTROYED: 'Sandbox destroyed',
   ERROR: 'Error',
 }
 
-const STATUS_ORDER: JobStatus[] = ['CLONING', 'INSTALLING', 'RUNNING', 'READY', 'ANALYZING', 'DONE']
+const STATUS_ORDER: JobStatus[] = ['CLONING', 'INSTALLING', 'RUNNING', 'READY', 'DESTROYING', 'DESTROYED']
 
 function StatusIcon({ status, isCurrent, isError }: { status: JobStatus; isCurrent: boolean; isError: boolean }) {
   if (isError) {
     return (
-      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-red-900/50 border border-red-700 text-red-400 text-xs font-bold shrink-0">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#f85149]/60 bg-[#da3633]/15 text-xs font-bold text-[#f85149]">
         ✕
       </div>
     )
   }
   if (isCurrent) {
     return (
-      <div className="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-900/50 border border-indigo-600 shrink-0">
-        <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse" />
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#58a6ff]/70 bg-[#1f6feb]/15">
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#58a6ff]" />
       </div>
     )
   }
   return (
-    <div className="flex items-center justify-center w-7 h-7 rounded-full bg-emerald-900/40 border border-emerald-700 text-emerald-400 text-xs shrink-0">
+    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#238636] bg-[#238636]/15 text-xs text-[#3fb950]">
       ✓
     </div>
   )
@@ -40,7 +42,7 @@ interface Props {
 
 export function StatusFeed({ events }: Props) {
   if (events.length === 0) {
-    return <p className="text-zinc-500 text-sm">Waiting for pipeline to start…</p>
+    return <p className="text-sm text-[#8b949e]">Preparing your sandbox…</p>
   }
 
   const lastEvent = events[events.length - 1]
@@ -57,7 +59,7 @@ export function StatusFeed({ events }: Props) {
     : STATUS_ORDER.filter(s => seenStatuses.has(s))
 
   return (
-    <div className="flex flex-col gap-3 w-full max-w-xl">
+    <div className="flex w-full max-w-xl flex-col gap-3">
       {visibleStatuses.map((status, idx) => {
         const event = seenStatuses.get(status)!
         const isCurrent = status === lastEvent.status && !isError
@@ -68,15 +70,15 @@ export function StatusFeed({ events }: Props) {
             <div className="flex flex-col items-center">
               <StatusIcon status={status} isCurrent={isCurrent} isError={isError && idx === visibleStatuses.length - 1} />
               {idx < visibleStatuses.length - 1 && (
-                <div className={`w-px flex-1 mt-1 min-h-4 ${done ? 'bg-emerald-800' : 'bg-zinc-700'}`} />
+                <div className={`mt-1 min-h-4 w-px flex-1 ${done ? 'bg-[#238636]' : 'bg-[#30363d]'}`} />
               )}
             </div>
             <div className="pb-3">
-              <p className={`text-sm font-medium ${isCurrent ? 'text-indigo-300' : isError && idx === visibleStatuses.length - 1 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <p className={`text-sm font-medium ${isCurrent ? 'text-[#58a6ff]' : isError && idx === visibleStatuses.length - 1 ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
                 {STATUS_LABELS[status]}
               </p>
-              <p className="text-xs text-zinc-500 mt-0.5">{event.message}</p>
-              <p className="text-xs text-zinc-700 mt-0.5">
+              <p className="mt-0.5 text-xs text-[#8b949e]">{event.message}</p>
+              <p className="mt-0.5 text-xs text-[#6e7681]">
                 {new Date(event.timestamp).toLocaleTimeString()}
               </p>
             </div>

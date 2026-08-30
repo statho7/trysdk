@@ -14,6 +14,7 @@ export async function GET(
 
   let lastIndex = 0
   const encoder = new TextEncoder()
+  let timer: ReturnType<typeof setInterval> | undefined
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -26,14 +27,14 @@ export async function GET(
         lastIndex += newEvents.length
 
         const currentJob = getJob(jobId)
-        if (currentJob?.status === 'DONE' || currentJob?.status === 'ERROR') {
+        if (currentJob?.status === 'DONE' || currentJob?.status === 'DESTROYED' || currentJob?.status === 'ERROR') {
           controller.close()
-          clearInterval(timer)
+          if (timer) clearInterval(timer)
         }
       }
 
       flush()
-      const timer = setInterval(flush, 500)
+      timer = setInterval(flush, 500)
     },
   })
 
