@@ -6,11 +6,36 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 const demoRepositories = [
-  { url: 'https://github.com/dgreenheck/threejs-procedural-planets', label: 'Procedural Planets — primary demo' },
-  { url: 'https://github.com/royalbhati/sqltoerdiagram', label: 'SQL to ER Diagram — reliable backup' },
-  { url: 'https://github.com/Leonxlnx/sakura-realm', label: 'Sakura Realm — visual backup' },
-  { url: 'https://github.com/TailAdmin/free-react-tailwind-admin-dashboard', label: 'TailAdmin Dashboard — business demo' },
-  { url: 'https://github.com/shadcndashboard/shadcndashboard', label: 'shadcn Dashboard — business demo' },
+  {
+    url: 'https://github.com/dgreenheck/threejs-procedural-planets',
+    label: 'Procedural Planets',
+    category: 'Creative',
+    description: 'Interactive 3D planets — the primary demo.',
+  },
+  {
+    url: 'https://github.com/royalbhati/sqltoerdiagram',
+    label: 'SQL to ER Diagram',
+    category: 'Developer tool',
+    description: 'Turn SQL schemas into entity relationship diagrams.',
+  },
+  {
+    url: 'https://github.com/Leonxlnx/sakura-realm',
+    label: 'Sakura Realm',
+    category: 'Creative',
+    description: 'A polished visual experience and reliable backup.',
+  },
+  {
+    url: 'https://github.com/TailAdmin/free-react-tailwind-admin-dashboard',
+    label: 'TailAdmin Dashboard',
+    category: 'Business',
+    description: 'A production-style admin dashboard with rich UI.',
+  },
+  {
+    url: 'https://github.com/shadcndashboard/shadcndashboard',
+    label: 'shadcn Dashboard',
+    category: 'Business',
+    description: 'A heavier dashboard example built with shadcn/ui.',
+  },
 ]
 
 export function InputForm() {
@@ -87,10 +112,42 @@ export function InputForm() {
         >
           <option value="">Select a prepared repository</option>
           {demoRepositories.map(repo => (
-            <option key={repo.url} value={repo.url}>{repo.label}</option>
+            <option key={repo.url} value={repo.url}>{repo.label} — {repo.category}</option>
           ))}
         </select>
       </div>
+
+      <section aria-labelledby="example-library-heading" className="mt-3 border-t border-[#21262d] pt-5">
+        <div className="flex items-baseline justify-between gap-4">
+          <div>
+            <h2 id="example-library-heading" className="text-sm font-medium text-[#f0f6fc]">Example library</h2>
+            <p className="mt-1 text-xs text-[#8b949e]">Verified public Vite repositories for a quick preview.</p>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-wide text-[#58a6ff]">{demoRepositories.length} ready</span>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {demoRepositories.map(repo => (
+            <article key={repo.url} className="group rounded-md border border-[#30363d] bg-[#161b22] p-3 transition-colors hover:border-[#58a6ff]/70">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-[#f0f6fc]">{repo.label}</p>
+                  <p className="mt-1 text-xs leading-5 text-[#8b949e]">{repo.description}</p>
+                </div>
+                <span className="shrink-0 rounded-full border border-[#30363d] px-1.5 py-0.5 font-mono text-[10px] text-[#8b949e]">{repo.category}</span>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setGithubUrl(repo.url)}
+                className="mt-3 border-[#30363d] bg-transparent text-xs text-[#c9d1d9] hover:border-[#58a6ff] hover:bg-[#1f6feb]/10 hover:text-[#f0f6fc]"
+              >
+                Use example <span aria-hidden="true">→</span>
+              </Button>
+            </article>
+          ))}
+        </div>
+      </section>
     </form>
   )
 }
