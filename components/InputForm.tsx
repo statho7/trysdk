@@ -9,6 +9,8 @@ const demoRepositories = [
   { url: 'https://github.com/dgreenheck/threejs-procedural-planets', label: 'Procedural Planets — primary demo' },
   { url: 'https://github.com/royalbhati/sqltoerdiagram', label: 'SQL to ER Diagram — reliable backup' },
   { url: 'https://github.com/Leonxlnx/sakura-realm', label: 'Sakura Realm — visual backup' },
+  { url: 'https://github.com/TailAdmin/free-react-tailwind-admin-dashboard', label: 'TailAdmin Dashboard — business demo' },
+  { url: 'https://github.com/shadcndashboard/shadcndashboard', label: 'shadcn Dashboard — business demo' },
 ]
 
 export function InputForm() {
