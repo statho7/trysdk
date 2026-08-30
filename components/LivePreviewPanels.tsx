@@ -6,7 +6,7 @@ import type { EvalResult, JobStatus, StatusEvent } from '@/lib/types'
 
 const FitReport = dynamic(
   () => import('@/components/FitReport').then(module => module.FitReport),
-  { loading: () => <p className="text-sm text-[#8b949e]">Loading evaluation report…</p> },
+  { loading: () => <p className="text-sm text-[var(--gh-fg-muted)]">Loading evaluation report…</p> },
 )
 
 const previewSteps: Array<[JobStatus, string]> = [
@@ -78,8 +78,8 @@ export function LiveLaunchPanel() {
   const currentIndex = last ? steps.findIndex(([status]) => status === last.status) : -1
 
   return (
-    <aside id="how" className="min-h-[27rem] overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-[0_16px_48px_rgba(1,4,9,0.18)]">
-      <div className="border-b border-[#21262d] bg-[#1c2128] px-4 py-3 font-mono text-xs text-[#8b949e]">{jobId ? `launch — ${jobId.slice(0, 8)}` : 'launch — ready when you are'}</div>
+    <aside id="how" className="min-h-[27rem] overflow-hidden rounded-lg border border-[var(--gh-border)] bg-[var(--gh-surface)] shadow-[0_16px_48px_rgba(1,4,9,0.18)]">
+      <div className="border-b border-[var(--gh-border-muted)] bg-[var(--gh-surface-2)] px-4 py-3 font-mono text-xs text-[var(--gh-fg-muted)]">{jobId ? `launch — ${jobId.slice(0, 8)}` : 'launch — ready when you are'}</div>
       <ol className="p-4">
         {steps.map(([status, label], index) => {
           const completed = currentIndex > index || last?.status === 'DONE'
@@ -89,20 +89,20 @@ export function LiveLaunchPanel() {
           return (
             <li key={status} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
               <div className="flex flex-col items-center">
-                <span className={`grid h-5 w-5 place-items-center rounded-full border text-[10px] ${failedAssessment ? 'border-[#f85149] bg-[#da3633]/15 text-[#f85149]' : completed ? 'border-[#3fb950] text-[#3fb950]' : active ? 'border-[#58a6ff] text-[#58a6ff]' : 'border-[#30363d] text-[#6e7681]'}`}>{failedAssessment ? '×' : completed ? '✓' : active ? '◌' : '•'}</span>
-                {index < steps.length - 1 && <span className={`min-h-6 w-px flex-1 ${completed ? 'bg-[#3fb950]/40' : 'bg-[#21262d]'}`} />}
+                <span className={`grid h-5 w-5 place-items-center rounded-full border text-[10px] ${failedAssessment ? 'border-[var(--gh-danger)] bg-[var(--gh-danger-emphasis)]/15 text-[var(--gh-danger)]' : completed ? 'border-[var(--gh-success)] text-[var(--gh-success)]' : active ? 'border-[var(--gh-accent)] text-[var(--gh-accent)]' : 'border-[var(--gh-border)] text-[var(--gh-fg-subtle)]'}`}>{failedAssessment ? '×' : completed ? '✓' : active ? '◌' : '•'}</span>
+                {index < steps.length - 1 && <span className={`min-h-6 w-px flex-1 ${completed ? 'bg-[var(--gh-success)]/40' : 'bg-[var(--gh-border-muted)]'}`} />}
               </div>
               <div className="min-w-0 pb-4">
-                <p className={`text-sm font-semibold ${failedAssessment ? 'text-[#f85149]' : active ? 'text-[#f0f6fc]' : 'text-[#c9d1d9]'}`}>{label}</p>
-                <p className="mt-0.5 truncate font-mono text-xs text-[#6e7681]">{detail ?? (index === 0 ? 'Waiting for a repository URL' : '—')}</p>
+                <p className={`text-sm font-semibold ${failedAssessment ? 'text-[var(--gh-danger)]' : active ? 'text-[var(--gh-fg)]' : 'text-[var(--gh-fg-body)]'}`}>{label}</p>
+                <p className="mt-0.5 truncate font-mono text-xs text-[var(--gh-fg-subtle)]">{detail ?? (index === 0 ? 'Waiting for a repository URL' : '—')}</p>
               </div>
             </li>
           )
         })}
         {last && ['ERROR', 'UNSUPPORTED'].includes(last.status) && (
-          <li className="mt-1 border-t border-[#f85149]/30 pt-3">
-            <p className="text-sm font-semibold text-[#f85149]">{last.status === 'UNSUPPORTED' ? 'This repository is not supported yet' : 'Preview could not be created'}</p>
-            <p className="mt-1 text-sm leading-5 text-[#c9d1d9]">{last.message}</p>
+          <li className="mt-1 border-t border-[var(--gh-danger)]/30 pt-3">
+            <p className="text-sm font-semibold text-[var(--gh-danger)]">{last.status === 'UNSUPPORTED' ? 'This repository is not supported yet' : 'Preview could not be created'}</p>
+            <p className="mt-1 text-sm leading-5 text-[var(--gh-fg-body)]">{last.message}</p>
           </li>
         )}
       </ol>
@@ -162,18 +162,19 @@ export function InlinePreview() {
   return (
     <>
       <section className="mx-auto max-w-[1080px] px-6 pb-8" aria-label="Live repository preview">
-        <div className="overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22]">
-          <div className="flex items-center justify-between gap-3 border-b border-[#21262d] bg-[#1c2128] px-4 py-3"><span className="font-mono text-xs text-[#8b949e]">preview · live sandbox</span><span className="text-xs font-semibold text-[#3fb950]">● Live</span></div>
-          <div className="relative h-[min(78vh,56rem)] min-h-[38rem] bg-[#010409]"><iframe title="Repository preview" src={iframeUrl} className="absolute inset-0 h-full w-full border-0" allow="fullscreen" /></div>
-          <div className="flex flex-wrap items-center gap-2 border-t border-[#21262d] bg-[#1c2128] px-4 py-3"><a href={iframeUrl} target="_blank" rel="noreferrer" className="rounded-md bg-[#238636] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2ea043]">Open preview</a><button type="button" onClick={async () => { await navigator.clipboard.writeText(iframeUrl); setCopied(true); window.setTimeout(() => setCopied(false), 2000) }} className="rounded-md border border-[#30363d] px-3 py-1.5 text-xs text-[#c9d1d9] hover:border-[#8b949e]">{copied ? 'Copied' : 'Copy link'}</button><button type="button" onClick={destroySandbox} disabled={destroying} className="rounded-md border border-[#f85149]/60 px-3 py-1.5 text-xs font-semibold text-[#f85149] transition-colors hover:bg-[#da3633]/15 disabled:cursor-not-allowed disabled:opacity-60">{destroying ? 'Destroying…' : 'Destroy'}</button>{destroyError && <p role="alert" className="basis-full text-xs text-[#f85149]">{destroyError}</p>}</div>
+        <div className="overflow-hidden rounded-lg border border-[var(--gh-border)] bg-[var(--gh-surface)]">
+          <div className="flex items-center justify-between gap-3 border-b border-[var(--gh-border-muted)] bg-[var(--gh-surface-2)] px-4 py-3"><span className="font-mono text-xs text-[var(--gh-fg-muted)]">preview · live sandbox</span><span className="text-xs font-semibold text-[var(--gh-success)]">● Live</span></div>
+          <div className="relative h-[min(78vh,56rem)] min-h-[38rem] bg-[var(--gh-canvas-inset)]"><iframe title="Repository preview" src={iframeUrl} className="absolute inset-0 h-full w-full border-0" allow="fullscreen" /></div>
+          <div className="flex flex-wrap items-center gap-2 border-t border-[var(--gh-border-muted)] bg-[var(--gh-surface-2)] px-4 py-3"><a href={iframeUrl} target="_blank" rel="noreferrer" className="rounded-md bg-[var(--gh-success-emphasis)] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[var(--gh-success-hover)]">Open preview</a><button type="button" onClick={async () => { await navigator.clipboard.writeText(iframeUrl); setCopied(true); window.setTimeout(() => setCopied(false), 2000) }} className="rounded-md border border-[var(--gh-border)] px-3 py-1.5 text-xs text-[var(--gh-fg-body)] hover:border-[var(--gh-fg-muted)]">{copied ? 'Copied' : 'Copy link'}</button><button type="button" onClick={destroySandbox} disabled={destroying} className="rounded-md border border-[var(--gh-danger)]/60 px-3 py-1.5 text-xs font-semibold text-[var(--gh-danger)] transition-colors hover:bg-[var(--gh-danger-emphasis)]/15 disabled:cursor-not-allowed disabled:opacity-60">{destroying ? 'Destroying…' : 'Destroy'}</button>{destroyError && <p role="alert" className="basis-full text-xs text-[var(--gh-danger)]">{destroyError}</p>}</div>
         </div>
       </section>
 
       {result && (
         <section className="mx-auto max-w-[1080px] px-6 pb-12" aria-labelledby="evaluation-report-heading">
-          <div className="rounded-lg border border-[#30363d] bg-[#161b22] p-6 sm:p-8">
-            <p className="font-mono text-xs font-medium uppercase tracking-[0.14em] text-[#58a6ff]">Screenshot evaluation</p>
-            <h2 id="evaluation-report-heading" className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-[#f0f6fc]">Product-fit report</h2>
+          <div className="rounded-lg border border-[var(--gh-border)] bg-[var(--gh-surface)] p-6 sm:p-8">
+            <p className="font-mono text-xs text-[var(--gh-fg-muted)]">assessment — screenshot evaluation</p>
+            <h2 id="evaluation-report-heading" className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-[var(--gh-fg)]">Product-fit report</h2>
+            <p className="mt-1 text-sm text-[var(--gh-fg-muted)]">We opened the running preview in a browser, captured what a first-time visitor sees, and compared it to your goal.</p>
             <div className="mt-6"><FitReport result={result} /></div>
           </div>
         </section>
