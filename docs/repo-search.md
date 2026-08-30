@@ -1,8 +1,8 @@
 # Repo search in the launch input (Parallel API)
 
-Status: proposed. Build only if the core URL → preview flow is stable and rehearsed.
-Timebox: 60–75 minutes. If it is not working by 15:45, cut it — the URL flow must not
-depend on it.
+Status: shipped (`app/api/search/route.ts` + dropdown in `components/InputForm.tsx`).
+Requires `PARALLEL_API_KEY` in the environment; the feature hides itself when unset.
+Note: the live API's mode values are `fast` / `one-shot` / `agentic` (we use `fast`).
 
 ## The idea
 
