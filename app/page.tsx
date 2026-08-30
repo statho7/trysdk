@@ -60,7 +60,7 @@ export default function Home() {
           </div>
           <div className="py-4 sm:py-1 sm:pl-7">
             <p className="text-sm font-medium text-[#f0f6fc]">Disposable by design</p>
-            <p className="mt-1 text-sm leading-6 text-[#8b949e]">Share the environment, then remove it when you are done.</p>
+            <p className="mt-1 text-sm leading-6 text-[#8b949e]">Share the environment, then remove it when you are done. Abandoned sandboxes clean up automatically.</p>
           </div>
         </section>
       </div>

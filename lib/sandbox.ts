@@ -1,12 +1,19 @@
 import { Daytona, Sandbox } from '@daytona/sdk'
 
 const daytona = new Daytona()
+const configuredAutoStopMinutes = Number(process.env.DAYTONA_AUTO_STOP_MINUTES ?? 30)
+const autoStopMinutes = Number.isFinite(configuredAutoStopMinutes) && configuredAutoStopMinutes > 0
+  ? configuredAutoStopMinutes
+  : 30
 
 export async function createSandbox(): Promise<Sandbox> {
   try {
     return await daytona.create({
       image: 'node:22',
       resources: { cpu: 2, memory: 4, disk: 10 },
+      // Stop an abandoned preview after inactivity, then delete it immediately.
+      autoStopInterval: autoStopMinutes,
+      autoDeleteInterval: 0,
     })
   } catch (err) {
     throw new Error(`Failed to create sandbox: ${err}`)
