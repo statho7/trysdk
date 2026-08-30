@@ -127,7 +127,7 @@ export function InputForm() {
                   <span className="block truncate font-mono text-[13px] text-[#58a6ff]">{result.fullName}</span>
                   {result.excerpt && <span className="block truncate text-xs text-[#6e7681]">{result.excerpt}</span>}
                 </span>
-                {result.vite && <span className="shrink-0 rounded-full border border-[#3fb950]/40 px-2 py-0.5 text-[11px] text-[#3fb950]">vite ✓</span>}
+                {result.vite && <span className="shrink-0 rounded-full border border-[#3fb950]/40 px-2 py-0.5 text-[11px] text-[#3fb950]">Vite app ✓</span>}
               </button>
             ))
           )}
