@@ -32,6 +32,7 @@ function isPublicGithubRepositoryUrl(value: string): boolean {
 async function runPipeline(job: Job, gatewayApiKey?: string) {
   let sandbox: Sandbox | null = null
   let keepSandbox = false
+  let framework: Job['framework']
   try {
     // 1. Clone
     await emitStatus(job.id, 'CREATING_SANDBOX', 'Creating an isolated sandbox...')
@@ -57,6 +58,7 @@ async function runPipeline(job: Job, gatewayApiKey?: string) {
       projectRoot: project.projectRoot,
       port: project.port,
     })
+    framework = project.framework
 
     await emitStatus(job.id, 'INSTALLING', project.packageManager === 'none' ? 'Preparing static files...' : `Installing dependencies with ${project.packageManager}...`)
     const installTimeoutSeconds = getInstallTimeoutSeconds()
@@ -116,6 +118,9 @@ async function runPipeline(job: Job, gatewayApiKey?: string) {
       await emitStatus(job.id, 'UNSUPPORTED', message)
     } else if (err instanceof PreviewCapacityError) {
       await emitStatus(job.id, 'ERROR', message)
+    } else if (/Application did not become ready on port/i.test(message)) {
+      const stack = framework === 'astro' ? 'Astro project' : framework === 'vite' ? 'Vite project' : 'project'
+      await emitStatus(job.id, 'ERROR', `This ${stack} did not start a preview server on the required port. It may use custom server settings or need services that Try SDK does not support yet.`)
     } else {
       await emitStatus(job.id, 'ERROR', `Pipeline failed: ${message}`)
     }

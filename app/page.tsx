@@ -12,19 +12,22 @@ export default function Home() {
             Try SDK
           </Link>
           <div className="ml-auto flex items-center gap-5 text-sm">
-            <a href="#how" className="hidden text-[#c9d1d9] no-underline hover:text-[#f0f6fc] sm:block">How it works</a>
             <a href="https://github.com/statho7/trysdk" target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[#c9d1d9] no-underline hover:text-[#f0f6fc]">
-              <span aria-hidden="true">◉</span><span className="hidden sm:inline">statho7/trysdk</span>
+              <span aria-hidden="true">◉</span><span className="hidden sm:inline">Project repository</span>
             </a>
           </div>
         </nav>
       </header>
 
-      <section className="mx-auto grid max-w-[1080px] gap-12 px-6 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]">
-        <div>
-          <p className="mb-4 font-mono text-xs text-[#8b949e]"><span className="text-[#3fb950]">●</span> v0.1 — Daytona HackSprint build</p>
+      <section className="mx-auto grid max-w-[1080px] grid-cols-[minmax(0,1fr)] gap-12 px-6 py-16 lg:grid-cols-[minmax(0,5fr)_minmax(0,4fr)]">
+        <div className="min-w-0">
+          <p className="mb-4 font-mono text-xs text-[#8b949e]"><span className="text-[#3fb950]">●</span> Daytona × Codex × Parallel</p>
           <h1 className="max-w-[20ch] text-4xl font-bold leading-[1.12] tracking-[-0.025em] text-[#f0f6fc] sm:text-5xl">Every repository deserves a Try button.</h1>
-          <p className="mt-5 max-w-[46ch] text-base leading-7 text-[#8b949e]">Paste a public GitHub URL. Try SDK clones it into an isolated Daytona sandbox, starts the repository’s own dev server, and gives you a live preview link before you clone anything.</p>
+          <ul className="mt-5 grid max-w-[46ch] gap-2 text-base text-[#8b949e]" aria-label="Try SDK value proposition">
+            <li className="flex items-center gap-2"><span className="text-[#3fb950]" aria-hidden="true">✓</span>Paste a public GitHub URL</li>
+            <li className="flex items-center gap-2"><span className="text-[#58a6ff]" aria-hidden="true">✓</span>Open a live preview in seconds</li>
+            <li className="flex items-center gap-2"><span className="text-[#a371f7]" aria-hidden="true">✓</span>See whether it matches your needs</li>
+          </ul>
           <div className="mt-8"><InputForm /></div>
         </div>
 

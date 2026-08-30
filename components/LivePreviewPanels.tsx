@@ -12,6 +12,7 @@ const FitReport = dynamic(
 const previewSteps: Array<[JobStatus, string]> = [
   ['CREATING_SANDBOX', 'Sandbox created'],
   ['CLONING', 'Repository cloned'],
+  ['INSPECTING', 'Checking compatibility'],
   ['INSTALLING', 'Dependencies installed'],
   ['RUNNING', 'Starting dev server'],
   ['READY', 'Preview ready'],
@@ -61,7 +62,9 @@ function useLiveJob() {
         stream.close()
       }
     }
-    stream.onerror = () => stream.close()
+    // EventSource reconnects automatically. Closing here left a launch stuck on
+    // its last successful step when a transient local/Vercel connection dropped.
+    stream.onerror = () => undefined
     return () => stream.close()
   }, [jobId])
 
@@ -78,7 +81,7 @@ export function LiveLaunchPanel() {
   const currentIndex = last ? steps.findIndex(([status]) => status === last.status) : -1
 
   return (
-    <aside id="how" className="min-h-[27rem] overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-[0_16px_48px_rgba(1,4,9,0.18)]">
+    <aside id="how" className="min-h-[27rem] min-w-0 overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-[0_16px_48px_rgba(1,4,9,0.18)]">
       <div className="border-b border-[#21262d] bg-[#1c2128] px-4 py-3 font-mono text-xs text-[#8b949e]">{jobId ? `launch — ${jobId.slice(0, 8)}` : 'launch — ready when you are'}</div>
       <ol className="p-4">
         {steps.map(([status, label], index) => {
