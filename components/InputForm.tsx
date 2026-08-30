@@ -121,14 +121,19 @@ export function InputForm() {
             <p className="px-3 py-2.5 text-sm text-[var(--gh-fg-muted)]">No launchable repos found — try different words or paste a GitHub URL.</p>
           ) : (
             searchResults.map((result, index) => (
-              <button key={result.url} type="button" role="option" aria-selected={index === activeIndex} onClick={() => pickResult(result)} className={`group flex w-full items-center gap-3 border-b border-[var(--gh-border-muted)] px-3 py-2.5 text-left last:border-b-0 hover:bg-[var(--gh-surface-2)] focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[var(--gh-accent)] ${index === activeIndex ? 'bg-[var(--gh-surface-2)]' : ''}`}>
-                <svg aria-hidden="true" className="shrink-0 text-[var(--gh-fg-subtle)]" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8Z" /></svg>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-mono text-[13px] text-[var(--gh-accent)]">{result.fullName}</span>
-                  {result.excerpt && <span className="block truncate text-xs text-[var(--gh-fg-subtle)]">{result.excerpt}</span>}
-                </span>
+              <div key={result.url} className={`group flex items-center gap-2 border-b border-[var(--gh-border-muted)] px-3 py-2 last:border-b-0 hover:bg-[var(--gh-surface-2)] ${index === activeIndex ? 'bg-[var(--gh-surface-2)]' : ''}`}>
+                <button type="button" role="option" aria-selected={index === activeIndex} onClick={() => pickResult(result)} className="flex min-w-0 flex-1 items-center gap-3 py-0.5 text-left focus-visible:relative focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-[var(--gh-accent)]">
+                  <svg aria-hidden="true" className="shrink-0 text-[var(--gh-fg-subtle)]" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8Z" /></svg>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-mono text-[13px] text-[var(--gh-accent)]">{result.fullName}</span>
+                    {result.excerpt && <span className="block truncate text-xs text-[var(--gh-fg-subtle)]">{result.excerpt}</span>}
+                  </span>
+                </button>
                 {result.stack && <span className="shrink-0 rounded-full border border-[var(--gh-success)]/40 px-2 py-0.5 text-[11px] text-[var(--gh-success)]">{result.stack} ✓</span>}
-              </button>
+                <a href={result.url} target="_blank" rel="noreferrer" aria-label={`Open ${result.fullName} on GitHub in a new tab`} title="Review repository" className="grid h-7 w-7 shrink-0 place-items-center rounded-md border border-[var(--gh-border)] text-[var(--gh-fg-muted)] hover:border-[var(--gh-fg-muted)] hover:text-[var(--gh-fg)] focus-visible:outline-2 focus-visible:outline-[var(--gh-accent)]">
+                  <svg aria-hidden="true" width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M10.75 2.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0V4.56L8.53 9.78a.75.75 0 0 1-1.06-1.06l5.22-5.22H11.5a.75.75 0 0 1-.75-.75Z" /><path d="M3.5 2A1.5 1.5 0 0 0 2 3.5v9A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V8.75a.75.75 0 0 0-1.5 0v3.75H3.5v-9h3.75a.75.75 0 0 0 0-1.5H3.5Z" /></svg>
+                </a>
+              </div>
             ))
           )}
         </div>
