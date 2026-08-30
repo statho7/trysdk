@@ -29,7 +29,7 @@ export function InputForm() {
       const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ useCase, githubUrl }),
+        body: JSON.stringify({ useCase: useCase.trim() || 'Launch this repository as a temporary preview.', githubUrl }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error ?? 'Something went wrong')
@@ -42,15 +42,15 @@ export function InputForm() {
 
   return (
     <form onSubmit={handleSubmit} className="max-w-[35rem]">
-      <label className="sr-only" htmlFor="useCase">What do you want to use this project for?</label>
-      <textarea id="useCase" required value={useCase} onChange={event => setUseCase(event.target.value)} placeholder="What are you hoping this project can do?" className="mb-2 min-h-24 w-full rounded-md border border-[#30363d] bg-[#010409] px-3 py-2.5 text-sm text-[#f0f6fc] outline-none placeholder:text-[#6e7681] focus:border-[#58a6ff] focus:ring-3 focus:ring-[#1f6feb]/25" />
+      <label className="sr-only" htmlFor="useCase">Optional: what do you want to use this project for?</label>
+      <textarea id="useCase" value={useCase} onChange={event => setUseCase(event.target.value)} placeholder="Optional: what are you hoping this project can do?" className="mb-2 min-h-16 w-full rounded-md border border-[#30363d] bg-[#010409] px-3 py-2.5 text-sm text-[#f0f6fc] outline-none placeholder:text-[#6e7681] focus:border-[#58a6ff] focus:ring-3 focus:ring-[#1f6feb]/25" />
       <label className="sr-only" htmlFor="githubUrl">GitHub repository URL</label>
       <div className="flex flex-col gap-2 sm:flex-row">
         <div className="flex h-11 min-w-0 flex-1 items-center rounded-md border border-[#30363d] bg-[#010409] transition-colors focus-within:border-[#58a6ff] focus-within:ring-3 focus-within:ring-[#1f6feb]/25">
           <svg aria-hidden="true" className="ml-3 shrink-0 text-[#6e7681]" width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8Z" /></svg>
           <input id="githubUrl" type="url" required value={githubUrl} onChange={event => setGithubUrl(event.target.value)} placeholder="https://github.com/owner/repository" className="min-w-0 flex-1 bg-transparent px-3 font-mono text-sm text-[#f0f6fc] outline-none placeholder:text-[#6e7681]" />
         </div>
-        <button type="submit" disabled={loading || !githubUrl.trim() || !useCase.trim()} className="inline-flex h-11 items-center justify-center rounded-md border border-white/10 bg-[#238636] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#2ea043] disabled:pointer-events-none disabled:opacity-50">
+        <button type="submit" disabled={loading || !githubUrl.trim()} className="inline-flex h-11 items-center justify-center rounded-md border border-white/10 bg-[#238636] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#2ea043] disabled:pointer-events-none disabled:opacity-50">
           {loading ? 'Creating preview…' : 'Try it'}
         </button>
       </div>
