@@ -220,6 +220,8 @@ Do not add these until the core flow is reliable:
 
 When the single-repository experience is stable, discovery can become the next product phase: rank compatible repositories and launch selected candidates in parallel. Validation reports may then use the evidence already stored on `Job` (commit, commands, durations, logs, preview URL, and lifecycle timestamps).
 
+The roadmap for widening stack coverage (static HTML, Next.js, port discovery, Python, preflight compatibility checks) is documented in [stack-expansion.md](stack-expansion.md). Note that pnpm and Yarn support has since shipped in `lib/detector.ts`.
+
 ## Provisional final demo script
 
 This script is intentionally provisional. Adjust the timing and wording after three cold-launch rehearsals with the selected demo repository. Target **2 minutes 30 seconds**, leaving 30 seconds of contingency.
