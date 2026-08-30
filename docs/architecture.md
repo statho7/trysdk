@@ -2,177 +2,96 @@
 
 ## System overview
 
-trysdk is a single Next.js 16 App Router application with no external backend, no database, and no auth. All orchestration happens in API routes via the Daytona TypeScript SDK.
+Try SDK remains a single Next.js 16 App Router application. API routes own orchestration, `lib/jobs.ts` retains temporary state in memory, and all remote execution goes through thin Daytona wrappers in `lib/sandbox.ts`. No database, auth, queue, or separate backend is required for the demo.
 
 ```mermaid
 flowchart TD
-    subgraph Browser ["Browser (Client)"]
-        UI["app/page.tsx"] -->|POST /api/jobs| API["API Routes"]
-        API -->|Returns jobId| UI
-        UI --> Results["app/results/:jobId/page.tsx"]
-        Results -->|SSE stream| StreamRoute["/api/jobs/:jobId/stream"]
-        Results -->|Fetch result| ResultRoute["/api/jobs/:jobId/result"]
-    end
-
-    subgraph Pipeline ["Background Pipeline (lib)"]
-        Jobs["jobs.ts - emitStatus"]
-        SandboxLib["sandbox.ts - Daytona SDK wrappers"]
-        Detector["detector.ts - detectStack"]
-        Evaluator["evaluator.ts - Claude Vision"]
-    end
-
-    API -->|Fires unawaited pipeline| Pipeline
-
-    subgraph Daytona ["Daytona Sandbox (Remote, Ephemeral)"]
-        Clone["git clone repo"]
-        Install["npm install / pip install"]
-        Run["nohup npm run dev -- --hostname 0.0.0.0 &"]
-        Preview["Preview URL Exposed"]
-        Scout["scripts/scout.playwright.ts"]
-        Shots["/tmp/screenshots/*.png + routes.json"]
-
-        Clone --> Install --> Run --> Preview --> Scout --> Shots
-    end
-
-    SandboxLib --- Daytona
+    Browser[Browser] -->|POST /api/jobs| API[Next.js API routes]
+    API -->|unawaited launch pipeline| Jobs[lib/jobs.ts]
+    Jobs --> Sandbox[lib/sandbox.ts]
+    Sandbox --> Daytona[Isolated Daytona sandbox]
+    Daytona --> Flow[Clone → inspect → install → start]
+    Flow --> Preview[Daytona preview URL]
+    Preview --> Jobs
+    Jobs -.->|SSE status stream| Browser
+    Browser -->|POST /api/jobs/:id/destroy| API
 ```
+
+## API contract
+
+```text
+POST /api/jobs
+{ "repoUrl": "https://github.com/owner/repository" }
+
+202 { "jobId": "abc123" }
+
+GET /api/jobs/:jobId
+GET /api/jobs/:jobId/stream
+POST /api/jobs/:jobId/destroy
+```
+
+The POST handler validates that `repoUrl` is a public HTTPS GitHub URL, creates a job, starts an unawaited pipeline, and immediately returns the ID. The client subscribes through SSE and reads the job for its preview URL and metadata. This preserves the original asynchronous architecture while making `ready` the successful product outcome.
 
 ## Job lifecycle
 
-Each job has an ID (UUID), stored in two in-memory maps in `lib/jobs.ts`:
-
-```
-jobs: Map<string, Job>
-events: Map<string, StatusEvent[]>
-```
-
-**Job status progression:**
-
 ```mermaid
 stateDiagram-v2
-    [*] --> CLONING: Create Job
-    CLONING --> INSTALLING: Repo Cloned
-    INSTALLING --> RUNNING: Dependencies Installed
-    RUNNING --> READY: App Server Started
-    READY --> ANALYZING: Screenshots Captured
-    ANALYZING --> DONE: Evaluation Complete
-    DONE --> [*]
+    [*] --> queued
+    queued --> creating_sandbox
+    creating_sandbox --> cloning
+    cloning --> inspecting
+    inspecting --> installing: supported Vite/npm repository
+    inspecting --> unsupported: unsupported structure
+    installing --> starting
+    starting --> ready
+    ready --> destroying: user requests destruction or lifetime expires
+    destroying --> destroyed
 
-    CLONING --> ERROR: Failure
-    INSTALLING --> ERROR: Failure
-    RUNNING --> ERROR: Failure
-    READY --> ERROR: Failure
-    ANALYZING --> ERROR: Failure
-    ERROR --> [*]
+    creating_sandbox --> failed
+    cloning --> failed
+    installing --> failed
+    starting --> failed
+    failed --> destroying: cleanup
+    unsupported --> destroying: cleanup
+    destroying --> destroyed
 ```
 
-The pipeline runs as an unawaited async IIFE inside `POST /api/jobs`. The route returns `{ jobId }` before any sandbox work begins.
+`ready` is not followed by evaluation. It means the application is available to use. The job keeps its sandbox ID, port, preview URL, commit SHA, detected framework, package manager, logs, and expiry time until destruction or control-app restart.
 
-## Data flow: screenshots to report
+## Launch pipeline
+
+The initial supported recipe is intentionally deterministic:
+
+1. Validate the GitHub URL and create an isolated sandbox.
+2. Clone to a fixed workspace using `sandbox.git.clone()`.
+3. Read `package.json`, lockfiles, and commit SHA.
+4. Accept Vite projects with a usable `dev` or `start` script; otherwise emit `unsupported` with an explanation.
+5. Run `npm ci`; only fall back to `npm install` if the lockfile path cannot be used.
+6. Start `npm run dev -- --host 0.0.0.0 --port 5173` through a named session.
+7. Wait for readiness with a bounded timeout and obtain `sandbox.getPreviewLink(5173)`.
+8. Store the preview and metadata, emit `ready`, and keep the sandbox alive until expiry or explicit destruction.
+
+Each meaningful stage calls `emitStatus(jobId, status, message)`. Status messages are user-facing and are streamed by `GET /api/jobs/:jobId/stream` as SSE.
+
+## Sandbox boundary and cleanup
+
+The sandbox runs untrusted public repository code in its own filesystem and process environment. It receives no host credentials. Only the known preview port is exposed.
+
+Failed and unsupported jobs attempt deletion immediately. Ready jobs are not deleted in the launch pipeline’s `finally` block: that would invalidate the product’s preview and sharing promise. Instead, `POST /api/jobs/:id/destroy` performs deletion, and a configured Daytona lifecycle limit covers abandoned sandboxes.
+
+## Components
 
 ```mermaid
 flowchart TD
-    subgraph Sandbox ["Daytona Sandbox"]
-        Scout["scout.playwright.ts"] -->|Saves| Files["/tmp/screenshots/*.png + routes.json"]
-    end
-
-    subgraph Host ["Next.js Server (lib)"]
-        Files -->|downloadFile| Buffer["Buffer in memory (lib/sandbox.ts)"]
-        Buffer -->|evaluateScreenshots| Evaluator["lib/evaluator.ts"]
-        Evaluator -->|Per-screenshot round| VisionNotes["Claude Vision: features & notes"]
-        VisionNotes -->|Aggregation round| FinalEval["Final Claude Call: EvalResult"]
-        FinalEval -->|Store| JobResult["jobs.ts (job.result)"]
-    end
-
-    subgraph Client ["Client Browser"]
-        JobResult -->|Fetch result JSON| UI["FitReport UI Component"]
-    end
+    Landing[Landing page] --> Input[GitHub URL input + Try it]
+    Results[Result page] --> Status[Progress timeline + logs]
+    Results --> Preview[Preview iframe / open link]
+    Results --> Meta[Repository and sandbox metadata]
+    Results --> Destroy[Destroy action]
 ```
 
-## SSE streaming
+The result page is a client component that opens the existing SSE stream, renders state changes, and enables preview actions once `ready` arrives. It renders concise unsupported and failed states for non-launchable repositories.
 
-The `GET /api/jobs/[jobId]/stream` route returns a `ReadableStream` with `Content-Type: text/event-stream`. It polls `events` every 500 ms and pipes new `StatusEvent` objects:
+## Deliberately deferred extensions
 
-```
-data: {"status":"CLONING","message":"Cloning repository...","timestamp":"..."}\n\n
-data: {"status":"INSTALLING","message":"Detecting stack...","timestamp":"..."}\n\n
-...
-data: {"status":"DONE","message":"Evaluation complete","timestamp":"..."}\n\n
-[stream closes]
-```
-
-The client (`app/results/[jobId]/page.tsx`) reads via `EventSource`. Once `DONE` arrives it closes the source and fetches the result from `/api/jobs/[jobId]/result`.
-
-`maxDuration = 300` is set on the stream route (Vercel Pro) to support long-running repos.
-
-## Stack detection
-
-`lib/detector.ts` receives a flat string array of file paths from the sandbox and returns `{ installCmd, startCmd, port, language }`. Detection priority:
-
-1. `package.json` + "next" dependency → Next.js (port 3000)
-2. `package.json` + "vite" dependency → Vite (port 5173)
-3. `package.json` (generic) → Node (port 3000)
-4. `requirements.txt` containing "streamlit" → Streamlit (port 8501)
-5. `requirements.txt` containing "fastapi" or "uvicorn" → FastAPI (port 8000)
-6. `requirements.txt` (generic) → Flask (port 5000)
-7. Unknown → throws a descriptive error
-
-The `startCmd` always includes `0.0.0.0` binding so Daytona can expose the port.
-
-## Evaluator (Claude vision via Vercel AI Gateway)
-
-`lib/evaluator.ts` uses the Vercel AI SDK (`ai` package) routed through the **Vercel AI Gateway** — not `@anthropic-ai/sdk` directly. This gives observability, failover, and OIDC auth with no per-key management.
-
-Model slug: `anthropic/claude-sonnet-4.6` (dots, not dashes).
-
-Two rounds of calls:
-
-1. **Per-screenshot round**: sends each `Screenshot.base64` as an image content part alongside the use case and route name. Expects structured JSON back: `{ features: Feature[], notes: string }`.
-   ```ts
-   import { generateText } from 'ai'
-   await generateText({
-     model: 'anthropic/claude-sonnet-4.6',
-     messages: [{ role: 'user', content: [
-       { type: 'image', image: Buffer.from(base64, 'base64'), mimeType: 'image/png' },
-       { type: 'text', text: prompt }
-     ]}]
-   })
-   ```
-2. **Aggregation round**: sends all per-screenshot notes as text to produce the final `EvalResult` (`fitScore` 0–10, `summary`, `verdict`, `caveats`).
-
-Auth: `VERCEL_OIDC_TOKEN` (auto-provisioned by `vercel env pull .env.local`; auto-refreshed on Vercel). Currently stubbed with mock data marked `// TODO:`.
-
-## Sandbox wrapper design
-
-`lib/sandbox.ts` exposes named async functions — no class. This keeps call sites simple and makes the Daytona SDK mockable at the module level in tests. Each function wraps the SDK method in try/catch and re-throws with a human-readable message.
-
-**npm package**: `@daytona/sdk` (import: `import { Daytona } from '@daytona/sdk'`)
-
-Key functions and the underlying SDK calls they wrap:
-
-| Wrapper | SDK call | Notes |
-|---|---|---|
-| `createSandbox(jobId)` | `daytona.create()` | Default network allows outbound; pass `networkBlockAll: true` only to lock down |
-| `execCommand(sandbox, cmd)` | `sandbox.process.executeCommand(cmd)` | Returns `{ result: string }` — not stdout/stderr/exitCode |
-| `startBackground(sandbox, name, cmd)` | `createSession` + `executeSessionCommand({ runAsync: true })` | For starting the app server that stays alive |
-| `cloneRepo(sandbox, url)` | `sandbox.git.clone(url, 'workspace/repo')` | Native SDK — do not shell out `git clone` |
-| `uploadFile(sandbox, content, remotePath)` | `sandbox.fs.uploadFile(Buffer.from(content), remotePath)` | Used to push `scout.playwright.ts` |
-| `downloadFile(sandbox, remotePath)` | `sandbox.fs.downloadFile(remotePath)` | Returns `Buffer` |
-| `getPreviewUrl(sandbox, port)` | `sandbox.getPreviewLink(port)` | Returns `{ url, token }` — token sent as `x-daytona-preview-token` header |
-| `deleteSandbox(sandbox)` | `sandbox.delete()` | Always called in `finally` |
-
-## Frontend components
-
-```mermaid
-flowchart TD
-    Page["app/page.tsx (Landing Page)"] --> InputForm["InputForm.tsx"]
-
-    ResultsPage["app/results/:jobId/page.tsx (Client Component)"] --> StatusFeed["StatusFeed.tsx"]
-    ResultsPage --> FitReport["FitReport.tsx"]
-```
-
-`FitReport` receives an `EvalResult` prop — no internal data fetching. The parent page handles the fetch after the SSE stream closes.
-
-## Deployment
-
-Deployed to Vercel with no extra configuration. The in-memory store means **jobs do not survive restarts** and are not shared across function instances — acceptable for a hackathon/demo context. For production multi-instance use, the job store would need to move to Redis or a database.
+The former screenshot, Playwright, and Claude-evaluation path is a possible later extension after a preview is ready. It is not on the critical path and must never prevent a user from opening a working preview. Future discovery can create multiple instances of this same launch pipeline for search-selected repositories.

@@ -1,296 +1,130 @@
-# Build Plan
+# Build plan
 
-Phased implementation order — each phase produces something runnable.
+Build a reliable URL-to-preview path before adding capability. Each phase produces something demonstrable and keeps the existing Next.js API-route, SSE, in-memory-job, and Daytona-wrapper architecture.
 
----
+## Phase 1 — Contract and scaffold
 
-## Phase 1 — Scaffold & types
-
-**Goal:** A working Next.js project with all files created but most logic stubbed.
-
-1. `npx create-next-app@latest trysdk --typescript --tailwind --app --no-src-dir`
-2. Install dependencies:
-   ```bash
-   npm install ai @daytona/sdk
-   npm install -D @types/node
-   npx shadcn@latest init
-   npx shadcn@latest add button input textarea card badge
-   ```
-3. Link to Vercel and pull env (required for AI Gateway OIDC auth):
-   ```bash
-   vercel link
-   vercel env pull .env.local   # writes VERCEL_OIDC_TOKEN
-   ```
-3. Create `.env.example` with all four keys
-4. Create every file in the project structure with its full skeleton — empty functions with correct signatures and return type annotations
-5. Write `lib/types.ts` in full — this is the schema that everything else depends on
-
-**Checkpoint:** `npm run build` passes with no type errors (stubs return typed mock values).
-
----
-
-## Phase 2 — Core lib layer
-
-**Goal:** All `lib/` files implemented and unit-testable in isolation.
-
-### 2a. `lib/jobs.ts`
+Create the app shell and define the stable launch contract in `lib/types.ts`.
 
 ```ts
-// Two maps:
-const jobs = new Map<string, Job>()
-const events = new Map<string, StatusEvent[]>()
+type JobStatus =
+  | 'queued'
+  | 'creating_sandbox'
+  | 'cloning'
+  | 'inspecting'
+  | 'installing'
+  | 'starting'
+  | 'ready'
+  | 'unsupported'
+  | 'failed'
+  | 'destroying'
+  | 'destroyed'
 
-export function createJob(githubUrl, useCase): Job
-export function getJob(jobId): Job | undefined
-export function updateJob(jobId, patch: Partial<Job>): void
-export function emitStatus(jobId, status, message): void
-export function getEvents(jobId): StatusEvent[]
-```
-
-`emitStatus` must also call `updateJob` to keep `job.status` in sync.
-
-### 2b. `lib/detector.ts`
-
-Pure function — no SDK calls, fully unit-testable.
-
-```ts
-export function detectStack(fileList: string[]): {
-  installCmd: string
-  startCmd: string
-  port: number
-  language: string
+type Job = {
+  id: string
+  repoUrl: string
+  status: JobStatus
+  framework: 'vite' | null
+  packageManager: 'npm' | null
+  sandboxId: string | null
+  commitSha: string | null
+  port: number | null
+  previewUrl: string | null
+  logs: string[]
+  error: string | null
+  createdAt: string
+  readyAt: string | null
+  expiresAt: string | null
 }
 ```
 
-Test by passing mock file lists for each supported stack.
+Retain `lib/jobs.ts` as the in-memory job store and status-event source. The landing page has one GitHub URL field and a **Try it** button; no use-case field is required.
 
-### 2c. `lib/sandbox.ts`
+**Checkpoint:** `npm run build` passes and the mocked UI renders queued, ready, unsupported, failed, and destroyed jobs.
 
-Install: `npm install @daytona/sdk`
+## Phase 2 — Prove the Daytona happy path
 
-Wire up real Daytona SDK calls. Start with `createSandbox` and `execCommand` — these unblock everything else.
+Before building route abstractions, write a standalone TypeScript script that creates a sandbox, clones one rehearsed public Vite repository, runs it, and prints a Daytona preview URL. Run it successfully from a cold sandbox three times.
 
-```ts
-import { Daytona } from '@daytona/sdk'
-const daytona = new Daytona() // reads DAYTONA_API_KEY from env automatically
+Use only `lib/sandbox.ts` wrappers in the app:
 
-export async function createSandbox(jobId: string): Promise<Sandbox>
-  // await daytona.create() — default allows outbound network
+- create a sandbox with a lifecycle suitable for the demo;
+- clone through `sandbox.git.clone()`;
+- read `package.json` and the commit SHA;
+- run `npm ci`, falling back to `npm install` only when necessary;
+- start with `npm run dev -- --host 0.0.0.0 --port 5173` in a named background session;
+- request `sandbox.getPreviewLink(5173)`.
 
-export async function execCommand(sandbox, cmd): Promise<{ result: string }>
-  // await sandbox.process.executeCommand(cmd)
-  // returns { result: string } — not stdout/stderr/exitCode
+**Checkpoint:** a known Vite repository opens at a working preview URL.
 
-export async function startBackground(sandbox, sessionName, cmd): Promise<void>
-  // await sandbox.process.createSession(sessionName)
-  // await sandbox.process.executeSessionCommand(sessionName, { command: cmd, runAsync: true })
+## Phase 3 — Launch API and pipeline
 
-export async function cloneRepo(sandbox, githubUrl): Promise<void>
-  // await sandbox.git.clone(githubUrl, 'workspace/repo')
-  // do NOT use execCommand('git clone ...') — use the native SDK method
+Keep the existing API shape and fire the pipeline without awaiting it.
 
-export async function uploadFile(sandbox, content: string, remotePath): Promise<void>
-  // await sandbox.fs.uploadFile(Buffer.from(content), remotePath)
+```text
+POST /api/jobs
+{ "repoUrl": "https://github.com/owner/repository" }
 
-export async function downloadFile(sandbox, remotePath): Promise<Buffer>
-  // await sandbox.fs.downloadFile(remotePath)
+202 { "jobId": "abc123" }
 
-export async function getPreviewUrl(sandbox, port): Promise<{ url: string, token: string }>
-  // await sandbox.getPreviewLink(port)
-  // returns { url, token } — token must be passed as x-daytona-preview-token header
-
-export async function deleteSandbox(sandbox): Promise<void>
-  // await sandbox.delete()
+GET /api/jobs/:jobId
+GET /api/jobs/:jobId/stream
+POST /api/jobs/:jobId/destroy
 ```
 
-### 2d. `lib/evaluator.ts`
-
-Keep the stub. Add `// TODO: replace with real Claude vision calls` on each call site. Return a realistic `EvalResult` so the frontend can render it end-to-end before Claude is wired.
-
-**Checkpoint:** Can call `detectStack(["package.json"])` and get a result. Sandbox functions compile and export correctly.
-
----
-
-## Phase 3 — API routes
-
-**Goal:** Full pipeline runs; browser can track a job from create to done.
-
-### 3a. `POST /api/jobs`
-
-```ts
-// 1. Validate body
-// 2. createJob()
-// 3. Fire unawaited pipeline — the runPipeline(job) call
-// 4. Return { jobId }
-```
-
-Implement `runPipeline(job)` as a module-level async function (not inside the route handler):
+The launch pipeline is deliberately narrow:
 
 ```mermaid
 sequenceDiagram
-    autonumber
-    participant Pipeline as runPipeline(job)
-    participant Jobs as lib/jobs.ts
-    participant Sandbox as Daytona Sandbox
-    participant Evaluator as lib/evaluator.ts
+    participant Jobs as In-memory jobs
+    participant Sandbox as Daytona sandbox
 
-    Pipeline->>Jobs: emitStatus CLONING
-    Pipeline->>Sandbox: createSandbox
-    Pipeline->>Sandbox: cloneRepo githubUrl
-    Pipeline->>Jobs: emitStatus INSTALLING
-    Pipeline->>Sandbox: execCommand: list files and detectStack
-    Pipeline->>Sandbox: execCommand: installCmd
-    Pipeline->>Jobs: emitStatus RUNNING
-    Pipeline->>Sandbox: startBackground and getPreviewUrl
-    Pipeline->>Jobs: updateJob previewUrl and emitStatus READY
-    Pipeline->>Sandbox: upload scout script and run Playwright
-    Pipeline->>Jobs: emitStatus ANALYZING
-    Pipeline->>Sandbox: downloadFile screenshots
-    Pipeline->>Evaluator: evaluateScreenshots with Claude Vision
-    Pipeline->>Jobs: updateJob result and emitStatus DONE
+    Jobs->>Sandbox: create isolated sandbox
+    Jobs->>Jobs: creating_sandbox
+    Sandbox->>Sandbox: clone public repository
+    Jobs->>Jobs: cloning, then inspecting
+    Sandbox->>Sandbox: validate package.json and Vite/npm support
+    Sandbox->>Sandbox: npm ci (fallback: npm install)
+    Jobs->>Jobs: installing
+    Sandbox->>Sandbox: start on 0.0.0.0:5173
+    Jobs->>Jobs: starting
+    Sandbox->>Sandbox: getPreviewLink(5173)
+    Jobs->>Jobs: ready with metadata and preview URL
 ```
 
-### 3b. `GET /api/jobs/[jobId]/stream`
+Validate an HTTPS GitHub URL before allocating a sandbox. Unsupported repositories must transition to `unsupported` with a concise reason. Bound clone, install, readiness, and overall launch timeouts; a failure becomes `failed`, preserves a useful log excerpt, and attempts cleanup.
 
-```ts
-export const maxDuration = 300
+**Checkpoint:** `POST /api/jobs` launches a supported repository end to end, while unsupported input returns a clear status rather than spinning indefinitely.
 
-// ReadableStream that:
-// - gets current events from getEvents(jobId)
-// - tracks lastIndex
-// - every 500ms: flush new events as SSE data frames
-// - closes when status === DONE || ERROR
-```
+## Phase 4 — Preview-first result surface
 
-### 3c. `GET /api/jobs/[jobId]/result`
+Retain the SSE status feed, but make `ready` the primary successful endpoint. The result page must show:
 
-```ts
-const job = getJob(jobId)
-if (!job || !job.result) return Response.json(null, { status: 404 })
-return Response.json(job.result)
-```
+- current launch stage, elapsed time, and expandable concise logs;
+- running preview in an iframe or a clear open-preview action;
+- open-in-new-tab and copy-share-link controls;
+- repository URL, commit SHA, framework, package manager, sandbox ID, port, and expiry;
+- explicit **Destroy sandbox** action and visible `destroying` → `destroyed` transition;
+- dedicated unsupported and failed views.
 
-**Checkpoint:** `curl -X POST /api/jobs -d '{"useCase":"...","githubUrl":"..."}'` returns `{ jobId }`. SSE stream opens and receives status events. Result endpoint returns mock EvalResult after DONE.
+**Checkpoint:** a user can launch, use, share, and destroy the preview without any AI or browser-automation step.
 
----
+## Phase 5 — Reliability and demo
 
-## Phase 4 — Frontend
+- Confirm the primary and backup Vite repositories launch from cold sandboxes three times each.
+- Record timing for sandbox creation, install, startup, and overall launch.
+- Test destroy and automatic cleanup after failed jobs.
+- Deploy the control application and rehearse the three-minute story.
+- Record one successful end-to-end fallback demo.
 
-**Goal:** Full user journey in the browser.
+## Deferred work
 
-### 4a. `app/page.tsx` + `components/InputForm.tsx`
+Do not add these until the core flow is reliable:
 
-- Dark landing page with headline, subtext, two inputs, submit button
-- On submit: POST → redirect to `/results/${jobId}`
+- pnpm, Yarn, Next.js, or non-Node launch recipes;
+- private repositories, secrets, databases, Docker, arbitrary ports, and production hosting;
+- persistent history, authentication, WebSockets, queues, or a database;
+- Playwright screenshots, Claude fit reports, agent repair, and browser testing;
+- natural-language GitHub discovery and parallel repository launches.
 
-### 4b. `components/StatusFeed.tsx`
-
-- Reads a `StatusEvent[]` prop
-- Renders a vertical timeline: icon + label + message + timestamp
-- Current step: pulsing animation
-- Completed steps: green checkmark
-- ERROR: red
-
-### 4c. `components/FitReport.tsx`
-
-- Accepts `EvalResult` prop
-- Large fit score with color coding: 0–4 red, 5–7 amber, 8–10 green
-- Feature grid: ✅/❌ per feature, hover shows notes
-- Screenshot gallery: thumbnail grid, click to expand
-- Verdict banner
-- Caveats list
-
-### 4d. `app/results/[jobId]/page.tsx`
-
-```tsx
-'use client'
-// On mount: new EventSource('/api/jobs/${jobId}/stream')
-// Accumulate events → pass to StatusFeed
-// On READY event: show previewUrl link
-// On DONE event: close EventSource, fetch /api/jobs/${jobId}/result
-// Render StatusFeed until result, then render FitReport
-```
-
-**Checkpoint:** Full user journey works end-to-end with the stubbed evaluator. Status feed animates live. FitReport renders mock data correctly.
-
----
-
-## Phase 5 — Real Playwright execution
-
-**Goal:** Screenshots actually come from the running app.
-
-1. Write `scripts/scout.playwright.ts` fully:
-   - Read `APP_URL` and `OUTPUT_DIR` from env
-   - Visit each route, skip 404s
-   - Save `.png` files and `routes.json`
-
-2. In the pipeline (`api/jobs/route.ts`), replace the TODO stubs:
-   ```ts
-   await uploadFile(sandbox, scoutScriptContent, '/workspace/scout.ts')
-   await execCommand(sandbox, 'npm install -g tsx playwright && npx playwright install chromium')
-   // APP_URL is the preview URL; Playwright must send x-daytona-preview-token header with each request
-   await execCommand(sandbox, `APP_URL=${previewUrl} PREVIEW_TOKEN=${token} OUTPUT_DIR=/tmp/shots tsx /workspace/scout.ts`)
-   const routesJson = await downloadFile(sandbox, '/tmp/shots/routes.json')
-   // download each png listed in routesJson
-   ```
-
-   Note: the scout script must set the `x-daytona-preview-token` header on every Playwright request. Do this via `page.setExtraHTTPHeaders({ 'x-daytona-preview-token': process.env.PREVIEW_TOKEN })` before navigation.
-
-**Checkpoint:** Real screenshots arrive from a live sandbox and are passed to the (still-stubbed) evaluator.
-
----
-
-## Phase 6 — Real Claude vision via AI Gateway
-
-**Goal:** Evaluator makes real AI Gateway calls.
-
-Replace the stub in `lib/evaluator.ts` using the Vercel AI SDK:
-
-```ts
-import { generateText } from 'ai'
-
-// 1. Per-screenshot call
-const { text } = await generateText({
-  model: 'anthropic/claude-sonnet-4.6',   // dots not dashes
-  messages: [{
-    role: 'user',
-    content: [
-      { type: 'image', image: Buffer.from(screenshot.base64, 'base64'), mimeType: 'image/png' },
-      { type: 'text', text: `Use case: ${useCase}\nRoute: ${screenshot.route}\nWhat features are visible? Does it support this use case? Reply as JSON: { features: [...], notes: string }` }
-    ]
-  }]
-})
-const parsed = JSON.parse(text) // { features, notes }
-
-// 2. Aggregation call — all notes as text → final EvalResult JSON
-const { text: summary } = await generateText({
-  model: 'anthropic/claude-sonnet-4.6',
-  prompt: `Given these per-route analyses: ${allNotes}\nProduce a final EvalResult as JSON: { fitScore, summary, verdict, caveats }`
-})
-```
-
-Auth: `VERCEL_OIDC_TOKEN` from `.env.local` (run `vercel env pull .env.local` if expired). No `ANTHROPIC_API_KEY` needed.
-
-**Checkpoint:** Real fit reports generated from live screenshots.
-
----
-
-## Phase 7 — Polish & deploy
-
-1. Error states: show helpful messages for clone failures, unknown stacks, sandbox timeouts
-2. Loading skeletons on the results page
-3. Mobile-responsive layout
-4. `vercel env pull .env.local` to sync Vercel env vars
-5. `vercel deploy` — zero extra config needed
-6. Smoke test against a known repo (e.g. `https://github.com/vercel/next.js/tree/canary/examples/blog-starter`)
-
----
-
-## Stubbing strategy
-
-At every phase, stubs should:
-- Return **typed values** that match the real return type
-- Be marked with `// TODO:` and a one-line description of what's missing
-- Use realistic mock data (not empty arrays or zeros) so the UI renders meaningfully
-
-This lets the frontend and backend be developed and tested independently.
+When the single-repository experience is stable, discovery can become the next product phase: rank compatible repositories and launch selected candidates in parallel. Validation reports may then use the evidence already stored on `Job` (commit, commands, durations, logs, preview URL, and lifecycle timestamps).
