@@ -9,6 +9,8 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/gateway": "^4.0.69",
+    "@ai-sdk/google": "^4.0.58",
     "@base-ui/react": "^1.7.0",
     "@daytona/sdk": "^0.207.0",
     "@upstash/redis": "^1.38.3",

@@ -1,5 +1,5 @@
 import type { Sandbox } from '@daytona/sdk'
-import { downloadFile, execCommand } from './sandbox'
+import { execCommand } from './sandbox'
 import type { Screenshot } from './types'
 
 const MAX_SCREENSHOTS = 6
@@ -108,7 +108,6 @@ export async function captureScreenshots(
   onProgress?: (message: string) => Promise<void>
 ): Promise<Screenshot[]> {
   const scoutPath = `${EVALUATOR_ROOT}/scout.mjs`
-  const outputDir = `${projectRoot}/.trysdk-scout-output`
   const prepareEvaluator = await execCommand(sandbox, `mkdir -p ${EVALUATOR_ROOT}`, 30)
   if (prepareEvaluator.exitCode !== 0) throw new Error(`Could not create evaluator workspace: ${prepareEvaluator.result.slice(-500)}`)
   // `sandbox.fs.uploadFile` depends on form-data, which Next/Vercel cannot
@@ -128,9 +127,13 @@ export async function captureScreenshots(
   if (install.exitCode !== 0) throw new Error(`Could not prepare Playwright: ${install.result.slice(-500)}`)
 
   await onProgress?.('Capturing as much screenshot evidence as possible over the next 30 seconds...')
+  // Daytona workspaces are not guaranteed to live under /root. The evaluator
+  // lives next to `repo` under `workspace`, so address it relative to the
+  // detected project root instead of assuming a container home directory.
+  const evaluatorPathFromProject = `${'../'.repeat(projectRoot.split('/').length - 1)}evaluator/scout.mjs`
   const scan = await execCommand(
     sandbox,
-    'rm -rf .trysdk-scout-output && node /root/workspace/evaluator/scout.mjs',
+    `rm -rf .trysdk-scout-output && node ${quoteShell(evaluatorPathFromProject)}`,
     45,
     {
       // The browser runs in the sandbox alongside Vite. Using localhost avoids
@@ -147,19 +150,28 @@ export async function captureScreenshots(
   )
   if (scan.exitCode !== 0) throw new Error(`Playwright scan failed: ${scan.result.slice(-500)}`)
 
-  const manifest = JSON.parse((await downloadFile(sandbox, `${outputDir}/screens.json`)).toString()) as CapturedScreen[]
+  // Daytona's fs.downloadFile uses a multipart implementation that is not
+  // bundle-safe in a Next server runtime. Read the small manifest and each
+  // already-compressed screenshot through the sandbox process API instead.
+  const manifestFile = await execCommand(sandbox, `cat ${quoteShell('.trysdk-scout-output/screens.json')}`, 30, undefined, projectRoot)
+  if (manifestFile.exitCode !== 0) throw new Error(`Could not read screenshot manifest: ${manifestFile.result.slice(-500)}`)
+  const manifest = JSON.parse(manifestFile.result) as CapturedScreen[]
   const screenshots = await Promise.all(manifest.slice(0, MAX_SCREENSHOTS).map(async screen => {
-    const data = await downloadFile(sandbox, `${outputDir}/${screen.fileName}`)
+    const image = await execCommand(sandbox, `base64 < ${quoteShell(`.trysdk-scout-output/${screen.fileName}`)} | tr -d '\\n'`, 30, undefined, projectRoot)
+    if (image.exitCode !== 0) throw new Error(`Could not read screenshot ${screen.fileName}: ${image.result.slice(-500)}`)
     return {
       route: screen.route,
       description: screen.description,
-      base64: data.toString('base64'),
+      base64: image.result,
       mimeType: 'image/jpeg' as const,
     }
   }))
 
   if (screenshots.length === 0) {
-    const failures = JSON.parse((await downloadFile(sandbox, `${outputDir}/failures.json`)).toString()) as Array<{ route: string; error: string }>
+    const failuresFile = await execCommand(sandbox, `cat ${quoteShell('.trysdk-scout-output/failures.json')}`, 30, undefined, projectRoot)
+    const failures = failuresFile.exitCode === 0
+      ? JSON.parse(failuresFile.result) as Array<{ route: string; error: string }>
+      : []
     const detail = failures[0]?.error ? `: ${failures[0].error}` : ''
     throw new Error(`Playwright could not capture a usable application screen${detail}`)
   }

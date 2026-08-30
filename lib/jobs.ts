@@ -5,11 +5,13 @@ import type { Job, JobStatus, StatusEvent } from './types'
 const redis = Redis.fromEnv()
 const TTL = 7200 // seconds — matches the sandbox auto-stop window
 
-export async function createJob(githubUrl: string, useCase: string): Promise<Job> {
+export async function createJob(githubUrl: string, useCase?: string): Promise<Job> {
+  const goal = useCase?.trim() ?? ''
   const job: Job = {
     id: uuidv4(),
     githubUrl,
-    useCase,
+    useCase: goal,
+    shouldEvaluate: Boolean(goal),
     status: 'CLONING',
     createdAt: new Date().toISOString(),
   }

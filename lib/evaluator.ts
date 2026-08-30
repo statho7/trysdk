@@ -1,4 +1,6 @@
 import { generateText } from 'ai'
+import { createGateway } from '@ai-sdk/gateway'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { z } from 'zod'
 import type { EvalResult, Screenshot } from './types'
 
@@ -31,7 +33,8 @@ function parseEvaluation(text: string): z.infer<typeof evaluationSchema> {
 
 export async function evaluateScreenshots(
   useCase: string,
-  screenshots: Screenshot[]
+  screenshots: Screenshot[],
+  gatewayApiKey?: string,
 ): Promise<EvalResult> {
   const evidence = screenshots.map((screenshot, index) => ({
     type: 'file' as const,
@@ -40,8 +43,19 @@ export async function evaluateScreenshots(
     filename: `screen-${index + 1}.jpg`,
   }))
 
+  const googleApiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+  const model = googleApiKey
+    ? createGoogleGenerativeAI({ apiKey: googleApiKey })('gemini-3.7-flash')
+    : gatewayApiKey
+      ? createGateway({ apiKey: gatewayApiKey })('google/gemini-3.7-flash')
+      : 'google/gemini-3.7-flash'
+
   const { text } = await generateText({
-    model: 'google/gemini-3.7-flash',
+    // A Vercel deployment supplies its short-lived OIDC credential on the
+    // incoming request header. Using a per-request Gateway instance keeps
+    // that credential out of persistent job data and makes the background
+    // evaluation work after the route response has been returned.
+    model,
     messages: [{
       role: 'user',
       content: [{
