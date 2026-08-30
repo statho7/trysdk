@@ -16,3 +16,7 @@ out/
 npm-debug.log*
 node_modules
 .env*
+
+.vercel
+
+tsconfig.tsbuildinfo
