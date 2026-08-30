@@ -127,7 +127,9 @@ export async function getPreviewUrl(
   port: number
 ): Promise<{ url: string; token: string }> {
   try {
-    const preview = await sandbox.getPreviewLink(port)
+    // Signed URLs are designed for browser embeds: no custom header or proxy
+    // warning acknowledgement is required, and access expires automatically.
+    const preview = await sandbox.getSignedPreviewUrl(port, 3600)
     return { url: preview.url ?? '', token: preview.token ?? '' }
   } catch (err) {
     throw new Error(`Failed to get preview URL for port ${port}: ${err}`)
