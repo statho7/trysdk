@@ -57,7 +57,7 @@ function commandsFor(installRoot: string, runRoot: string, packageManager: Packa
 
   if (packageManager === 'pnpm') {
     return {
-      installCmd: `cd ${installDirectory} && corepack pnpm install --frozen-lockfile`,
+      installCmd: `cd ${installDirectory} && corepack pnpm install --frozen-lockfile --dangerously-allow-all-builds`,
       startCmd: `cd ${runDirectory} && corepack pnpm run ${script} -- --host 0.0.0.0 --port 5173 --strictPort`,
     }
   }
