@@ -1,4 +1,4 @@
-export type PackageManager = 'npm' | 'pnpm' | 'yarn'
+export type PackageManager = 'bun' | 'npm' | 'pnpm' | 'yarn'
 
 export interface PackageManifest {
   path: string
@@ -33,6 +33,8 @@ function packageManagerFor(projectRoot: string, filePaths: string[]): { packageM
   let root = projectRoot
   while (true) {
     const lockfiles = [
+      ['bun.lock', 'bun'],
+      ['bun.lockb', 'bun'],
       ['pnpm-lock.yaml', 'pnpm'],
       ['yarn.lock', 'yarn'],
       ['package-lock.json', 'npm'],
@@ -62,6 +64,15 @@ function commandsFor(installRoot: string, runRoot: string, packageManager: Packa
     }
   }
 
+  if (packageManager === 'bun') {
+    return {
+      // The shared browser image does not guarantee Bun. Bootstrap it only
+      // for repositories that explicitly declare a Bun lockfile.
+      installCmd: `command -v bun >/dev/null 2>&1 || npm install --global --no-audit --no-fund bun@1; cd ${installDirectory} && bun install --frozen-lockfile`,
+      startCmd: `cd ${runDirectory} && bun run ${script} -- --host 0.0.0.0 --port 5173 --strictPort`,
+    }
+  }
+
   if (packageManager === 'yarn') {
     return {
       installCmd: `cd ${installDirectory} && (corepack yarn install --immutable || corepack yarn install --frozen-lockfile)`,
@@ -70,7 +81,7 @@ function commandsFor(installRoot: string, runRoot: string, packageManager: Packa
   }
 
   return {
-    installCmd: `cd ${installDirectory} && ${hasNpmLock ? 'npm ci' : 'npm install'}`,
+    installCmd: `cd ${installDirectory} && ${hasNpmLock ? 'npm ci' : 'npm install'} --no-audit --no-fund --fetch-retries=2 --fetch-retry-maxtimeout=10000`,
     startCmd: `cd ${runDirectory} && npm run ${script} -- --host 0.0.0.0 --port 5173 --strictPort`,
   }
 }

@@ -9,12 +9,15 @@ const FitReport = dynamic(
   { loading: () => <p className="text-sm text-[#8b949e]">Loading evaluation report…</p> },
 )
 
-const steps: Array<[JobStatus, string]> = [
+const previewSteps: Array<[JobStatus, string]> = [
   ['CREATING_SANDBOX', 'Sandbox created'],
   ['CLONING', 'Repository cloned'],
   ['INSTALLING', 'Dependencies installed'],
   ['RUNNING', 'Starting dev server'],
   ['READY', 'Preview ready'],
+]
+
+const evaluationSteps: Array<[JobStatus, string]> = [
   ['ANALYZING', 'Evaluating product fit'],
   ['DONE', 'Evaluation report ready'],
 ]
@@ -23,12 +26,15 @@ function useLiveJob() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [events, setEvents] = useState<StatusEvent[]>([])
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [assessmentRequested, setAssessmentRequested] = useState(false)
 
   useEffect(() => {
     const handler = (event: Event) => {
       setEvents([])
       setPreviewUrl(null)
-      setJobId((event as CustomEvent<{ jobId: string }>).detail.jobId)
+      const detail = (event as CustomEvent<{ jobId: string; assessmentRequested: boolean }>).detail
+      setAssessmentRequested(detail.assessmentRequested)
+      setJobId(detail.jobId)
     }
     window.addEventListener('trysdk:job', handler)
     return () => window.removeEventListener('trysdk:job', handler)
@@ -59,12 +65,16 @@ function useLiveJob() {
     return () => stream.close()
   }, [jobId])
 
-  return { jobId, events, previewUrl }
+  return { jobId, events, previewUrl, assessmentRequested }
 }
 
 export function LiveLaunchPanel() {
-  const { jobId, events } = useLiveJob()
+  const { jobId, events, assessmentRequested } = useLiveJob()
   const last = events.at(-1)
+  const evaluationUnavailable = last?.status === 'DONE' && /evaluation was unavailable/i.test(last.message)
+  const steps = assessmentRequested
+    ? [...previewSteps, ...(evaluationUnavailable ? [['DONE', 'Assessment unavailable'] as [JobStatus, string]] : evaluationSteps)]
+    : [...previewSteps, ['DONE', 'Preview live'] as [JobStatus, string]]
   const currentIndex = last ? steps.findIndex(([status]) => status === last.status) : -1
 
   return (
@@ -74,15 +84,16 @@ export function LiveLaunchPanel() {
         {steps.map(([status, label], index) => {
           const completed = currentIndex > index || last?.status === 'DONE'
           const active = currentIndex === index && last?.status !== 'DONE'
+          const failedAssessment = evaluationUnavailable && status === 'DONE'
           const detail = events.filter(event => event.status === status).at(-1)?.message
           return (
             <li key={status} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
               <div className="flex flex-col items-center">
-                <span className={`grid h-5 w-5 place-items-center rounded-full border text-[10px] ${completed ? 'border-[#3fb950] text-[#3fb950]' : active ? 'border-[#58a6ff] text-[#58a6ff]' : 'border-[#30363d] text-[#6e7681]'}`}>{completed ? '✓' : active ? '◌' : '•'}</span>
+                <span className={`grid h-5 w-5 place-items-center rounded-full border text-[10px] ${failedAssessment ? 'border-[#f85149] bg-[#da3633]/15 text-[#f85149]' : completed ? 'border-[#3fb950] text-[#3fb950]' : active ? 'border-[#58a6ff] text-[#58a6ff]' : 'border-[#30363d] text-[#6e7681]'}`}>{failedAssessment ? '×' : completed ? '✓' : active ? '◌' : '•'}</span>
                 {index < steps.length - 1 && <span className={`min-h-6 w-px flex-1 ${completed ? 'bg-[#3fb950]/40' : 'bg-[#21262d]'}`} />}
               </div>
               <div className="min-w-0 pb-4">
-                <p className={`text-sm font-semibold ${active ? 'text-[#f0f6fc]' : 'text-[#c9d1d9]'}`}>{label}</p>
+                <p className={`text-sm font-semibold ${failedAssessment ? 'text-[#f85149]' : active ? 'text-[#f0f6fc]' : 'text-[#c9d1d9]'}`}>{label}</p>
                 <p className="mt-0.5 truncate font-mono text-xs text-[#6e7681]">{detail ?? (index === 0 ? 'Waiting for a repository URL' : '—')}</p>
               </div>
             </li>

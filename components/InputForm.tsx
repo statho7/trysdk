@@ -89,11 +89,11 @@ export function InputForm() {
       const response = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ useCase: useCase.trim() || 'Launch this repository as a temporary preview.', githubUrl }),
+        body: JSON.stringify({ useCase: useCase.trim() || undefined, githubUrl }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error ?? 'Something went wrong')
-      window.dispatchEvent(new CustomEvent('trysdk:job', { detail: { jobId: data.jobId } }))
+      window.dispatchEvent(new CustomEvent('trysdk:job', { detail: { jobId: data.jobId, assessmentRequested: data.assessmentRequested === true } }))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to start job')
       setLoading(false)

@@ -9,6 +9,15 @@ import type { Job } from '@/lib/types'
 
 const quoteShell = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
 
+function getInstallTimeoutSeconds(): number {
+  const configured = Number(process.env.PREVIEW_INSTALL_TIMEOUT_SECONDS ?? 120)
+  return Number.isFinite(configured) ? Math.min(300, Math.max(30, configured)) : 120
+}
+
+function evaluationCredential(request?: Request): string | undefined {
+  return process.env.AI_GATEWAY_API_KEY || request?.headers.get('x-vercel-oidc-token') || process.env.VERCEL_OIDC_TOKEN || undefined
+}
+
 function isPublicGithubRepositoryUrl(value: string): boolean {
   try {
     const url = new URL(value)
@@ -20,7 +29,7 @@ function isPublicGithubRepositoryUrl(value: string): boolean {
   }
 }
 
-async function runPipeline(job: Job) {
+async function runPipeline(job: Job, gatewayApiKey?: string) {
   let sandbox: Sandbox | null = null
   let keepSandbox = false
   try {
@@ -34,7 +43,7 @@ async function runPipeline(job: Job) {
     await cloneRepo(activeSandbox, job.githubUrl)
 
     await emitStatus(job.id, 'INSPECTING', 'Inspecting package files and Vite configuration...')
-    const { result: lsOutput } = await execCommand(activeSandbox, 'find workspace/repo -maxdepth 4 -type f \\( -name package.json -o -name package-lock.json -o -name pnpm-lock.yaml -o -name yarn.lock \\) -print')
+    const { result: lsOutput } = await execCommand(activeSandbox, 'find workspace/repo -maxdepth 4 -type f \\( -name package.json -o -name package-lock.json -o -name pnpm-lock.yaml -o -name yarn.lock -o -name bun.lock -o -name bun.lockb \\) -print')
     const fileList = lsOutput.split('\n').filter(Boolean)
     const manifests = await Promise.all(fileList.filter(path => path.endsWith('/package.json')).map(async path => {
       const manifest = await execCommand(activeSandbox, `cat -- ${quoteShell(path)}`)
@@ -50,7 +59,15 @@ async function runPipeline(job: Job) {
     })
 
     await emitStatus(job.id, 'INSTALLING', `Installing dependencies with ${project.packageManager}...`)
-    const install = await execCommand(activeSandbox, project.installCmd, 180)
+    const installTimeoutSeconds = getInstallTimeoutSeconds()
+    const install = await execCommand(
+      activeSandbox,
+      `timeout ${installTimeoutSeconds}s sh -lc ${quoteShell(project.installCmd)}`,
+      installTimeoutSeconds + 10,
+    )
+    if (install.exitCode === 124) {
+      throw new Error(`Dependency installation timed out after ${installTimeoutSeconds} seconds. This repository's dependency setup is too heavy or needs a runtime we do not support yet.`)
+    }
     if (install.exitCode !== 0) throw new Error(`Dependency installation failed: ${install.result.slice(-500)}`)
 
     await emitStatus(job.id, 'RUNNING', `Starting Vite on port ${project.port}...`)
@@ -65,17 +82,34 @@ async function runPipeline(job: Job) {
     await emitStatus(job.id, 'READY', `App is live at ${previewUrl}`)
     keepSandbox = true
 
-    await emitStatus(job.id, 'ANALYZING', 'Preparing browser-based evaluation...')
-    const screenshots = await captureScreenshots(
-      activeSandbox,
-      project.port,
-      project.projectRoot,
-      message => emitStatus(job.id, 'ANALYZING', message),
-    )
-    await emitStatus(job.id, 'ANALYZING', `Captured ${screenshots.length} screen${screenshots.length === 1 ? '' : 's'} — Gemini is assessing the evidence against your goal...`)
-    const result = await evaluateScreenshots(job.useCase, screenshots)
-    await updateJob(job.id, { result: { ...result, jobId: job.id } })
-    await emitStatus(job.id, 'DONE', 'Evaluation report is ready')
+    if (!job.shouldEvaluate) {
+      await emitStatus(job.id, 'DONE', 'Preview is live')
+      return
+    }
+
+    if (!gatewayApiKey && !process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+      await emitStatus(job.id, 'DONE', 'Preview is live. Assessment needs a Gemini or AI Gateway credential.')
+      return
+    }
+
+    try {
+      await emitStatus(job.id, 'ANALYZING', 'Preparing browser-based evaluation...')
+      const screenshots = await captureScreenshots(
+        activeSandbox,
+        project.port,
+        project.projectRoot,
+        message => emitStatus(job.id, 'ANALYZING', message),
+      )
+      await emitStatus(job.id, 'ANALYZING', `Captured ${screenshots.length} screen${screenshots.length === 1 ? '' : 's'} — Gemini is assessing the evidence against your goal...`)
+      const result = await evaluateScreenshots(job.useCase, screenshots, gatewayApiKey)
+      await updateJob(job.id, { result: { ...result, jobId: job.id } })
+      await emitStatus(job.id, 'DONE', 'Evaluation report is ready')
+    } catch (evaluationError) {
+      // The preview is already live. A best-effort report must not relabel a
+      // successful preview as a failed pipeline.
+      console.error('Preview evaluation failed:', evaluationError)
+      await emitStatus(job.id, 'DONE', 'Preview is live. Automated evaluation was unavailable for this run.')
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (err instanceof UnsupportedProjectError) {
@@ -99,16 +133,18 @@ export async function POST(request: Request) {
   }
 
   const { useCase, githubUrl } = body
-  if (!useCase?.trim() || !githubUrl?.trim()) {
-    return Response.json({ error: 'useCase and githubUrl are required' }, { status: 400 })
+  if (!githubUrl?.trim()) {
+    return Response.json({ error: 'githubUrl is required' }, { status: 400 })
   }
   if (!isPublicGithubRepositoryUrl(githubUrl.trim())) {
     return Response.json({ error: 'Enter a public HTTPS GitHub repository URL, such as https://github.com/owner/repository.' }, { status: 400 })
   }
 
-  const job = await createJob(githubUrl.trim(), useCase.trim())
+  const job = await createJob(githubUrl.trim(), useCase)
   // waitUntil keeps the pipeline running after the response is sent (Vercel Fluid Compute)
-  waitUntil(runPipeline(job))
+  // Vercel exposes runtime OIDC as a request header. Keep it only in memory
+  // for this background task; never persist a credential with the job.
+  waitUntil(runPipeline(job, evaluationCredential(request)))
 
-  return Response.json({ jobId: job.id })
+  return Response.json({ jobId: job.id, assessmentRequested: job.shouldEvaluate })
 }

@@ -45,11 +45,12 @@ export interface Job {
   id: string
   githubUrl: string
   useCase: string
+  shouldEvaluate: boolean
   status: JobStatus
   createdAt: string
   sandboxId?: string
   framework?: 'vite'
-  packageManager?: 'npm' | 'pnpm' | 'yarn'
+  packageManager?: 'bun' | 'npm' | 'pnpm' | 'yarn'
   projectRoot?: string
   port?: number
   previewUrl?: string
