@@ -195,6 +195,15 @@ On stage: point at the KPI cards and sales chart, toggle dark mode, open Calenda
 
 Use [shadcndashboard/shadcndashboard](https://github.com/shadcndashboard/shadcndashboard) only if TailAdmin fails. MIT, plain `vite` dev script, verified locally on `0.0.0.0:5173` — but ~38 MB clone, cold `npm ci` took about 3 minutes 8 seconds (577 packages), and its Notes/Tickets pages rely on a mock service worker that requires a secure context, so demo only the dashboard view.
 
+### Install speed
+
+Measured on TailAdmin: cold `npm ci` took 2 m 16 s of wall time but only ~9 s of CPU — the wait is registry download, not computation. A warm npm cache reduced the same install to **15 s**. Two remedies, in order of value:
+
+1. **Warm the npm cache in the sandbox image.** Build a Daytona snapshot that has already run `npm ci` once for the rehearsed demo repositories (the cache under `~/.npm` is what matters; `node_modules` can be discarded). Launches then install in seconds while remaining a genuine install.
+2. **Trim npm overhead everywhere.** Use `npm ci --no-audit --no-fund --loglevel=error` in the pipeline install command — it skips the audit round trip and noise at zero risk.
+
+Also time an untouched launch inside Daytona before assuming the local numbers apply: sandbox network throughput to the npm registry may be materially faster than the machine these baselines came from.
+
 ### Repository rehearsal rule
 
 The final demo repository is the primary only after it has launched from a new Daytona sandbox three consecutive times through the complete Try SDK interface. If it does not pass that test, switch to Backup 1 rather than debugging visual code or dependencies close to submission.
