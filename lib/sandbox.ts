@@ -18,7 +18,41 @@ export async function createSandbox(): Promise<Sandbox> {
       autoDeleteInterval: 0,
     })
   } catch (err) {
+    if (isMemoryLimitError(err)) {
+      await reclaimStaleSandboxes()
+      try {
+        return await getDaytona().create({
+          image: 'node:22',
+          resources: { cpu: 2, memory: 4, disk: 10 },
+          autoStopInterval: getAutoStopMinutes(),
+          autoDeleteInterval: 0,
+        })
+      } catch (retryError) {
+        throw new Error(`Failed to create sandbox after reclaiming stale previews: ${retryError}`)
+      }
+    }
     throw new Error(`Failed to create sandbox: ${err}`)
+  }
+}
+
+function isMemoryLimitError(error: unknown): boolean {
+  return /Total memory limit exceeded/i.test(String(error))
+}
+
+async function reclaimStaleSandboxes(): Promise<void> {
+  const maxAgeMinutes = Number(process.env.DAYTONA_CAPACITY_CLEANUP_MINUTES ?? 15)
+  const cutoff = Date.now() - (Number.isFinite(maxAgeMinutes) && maxAgeMinutes > 0 ? maxAgeMinutes : 15) * 60_000
+  const daytona = getDaytona()
+
+  for await (const sandbox of daytona.list()) {
+    const createdAt = Date.parse(String(sandbox.createdAt ?? ''))
+    if (Number.isFinite(createdAt) && createdAt < cutoff) {
+      try {
+        await sandbox.delete()
+      } catch {
+        // A concurrent cleanup may already have removed it; continue with the retry.
+      }
+    }
   }
 }
 

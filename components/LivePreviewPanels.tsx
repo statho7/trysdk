@@ -1,0 +1,103 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import type { JobStatus, StatusEvent } from '@/lib/types'
+
+const steps: Array<[JobStatus, string]> = [
+  ['CREATING_SANDBOX', 'Sandbox created'],
+  ['CLONING', 'Repository cloned'],
+  ['INSTALLING', 'Dependencies installed'],
+  ['RUNNING', 'Starting dev server'],
+  ['READY', 'Preview ready'],
+]
+
+function useLiveJob() {
+  const [jobId, setJobId] = useState<string | null>(null)
+  const [events, setEvents] = useState<StatusEvent[]>([])
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      setEvents([])
+      setPreviewUrl(null)
+      setJobId((event as CustomEvent<{ jobId: string }>).detail.jobId)
+    }
+    window.addEventListener('trysdk:job', handler)
+    return () => window.removeEventListener('trysdk:job', handler)
+  }, [])
+
+  useEffect(() => {
+    if (!jobId) return
+    const stream = new EventSource(`/api/jobs/${jobId}/stream`)
+    stream.onmessage = event => {
+      const next: StatusEvent = JSON.parse(event.data)
+      setEvents(previous => [...previous, next])
+      if (next.status === 'READY') {
+        const match = next.message.match(/https?:\/\/\S+/)
+        if (match) {
+          setPreviewUrl(match[0])
+          window.dispatchEvent(new CustomEvent('trysdk:preview', { detail: { jobId, previewUrl: match[0] } }))
+        }
+      }
+      if (['ERROR', 'UNSUPPORTED', 'DESTROYED'].includes(next.status)) stream.close()
+    }
+    stream.onerror = () => stream.close()
+    return () => stream.close()
+  }, [jobId])
+
+  return { jobId, events, previewUrl }
+}
+
+export function LiveLaunchPanel() {
+  const { jobId, events } = useLiveJob()
+  const last = events.at(-1)
+  const currentIndex = last ? steps.findIndex(([status]) => status === last.status) : -1
+
+  return (
+    <aside id="how" className="min-h-[27rem] overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22] shadow-[0_16px_48px_rgba(1,4,9,0.18)]">
+      <div className="border-b border-[#21262d] bg-[#1c2128] px-4 py-3 font-mono text-xs text-[#8b949e]">{jobId ? `launch — ${jobId.slice(0, 8)}` : 'launch — ready when you are'}</div>
+      <ol className="p-4">
+        {steps.map(([status, label], index) => {
+          const completed = currentIndex > index || last?.status === 'READY'
+          const active = currentIndex === index && last?.status !== 'READY'
+          const detail = events.filter(event => event.status === status).at(-1)?.message
+          return (
+            <li key={status} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
+              <div className="flex flex-col items-center">
+                <span className={`grid h-5 w-5 place-items-center rounded-full border text-[10px] ${completed ? 'border-[#3fb950] text-[#3fb950]' : active ? 'border-[#58a6ff] text-[#58a6ff]' : 'border-[#30363d] text-[#6e7681]'}`}>{completed ? '✓' : active ? '◌' : '•'}</span>
+                {index < steps.length - 1 && <span className={`min-h-6 w-px flex-1 ${completed ? 'bg-[#3fb950]/40' : 'bg-[#21262d]'}`} />}
+              </div>
+              <div className="min-w-0 pb-4">
+                <p className={`text-sm font-semibold ${active ? 'text-[#f0f6fc]' : 'text-[#c9d1d9]'}`}>{label}</p>
+                <p className="mt-0.5 truncate font-mono text-xs text-[#6e7681]">{detail ?? (index === 0 ? 'Waiting for a repository URL' : '—')}</p>
+              </div>
+            </li>
+          )
+        })}
+        {last && ['ERROR', 'UNSUPPORTED'].includes(last.status) && <li className="mt-1 border-t border-[#f85149]/30 pt-3 text-sm text-[#f85149]">{last.message}</li>}
+      </ol>
+    </aside>
+  )
+}
+
+export function InlinePreview() {
+  const [preview, setPreview] = useState<{ jobId: string; previewUrl: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const handler = (event: Event) => setPreview((event as CustomEvent<{ jobId: string; previewUrl: string }>).detail)
+    window.addEventListener('trysdk:preview', handler)
+    return () => window.removeEventListener('trysdk:preview', handler)
+  }, [])
+
+  if (!preview) return null
+  return (
+    <section className="mx-auto max-w-[1080px] px-6 pb-12" aria-label="Live repository preview">
+      <div className="overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22]">
+        <div className="flex items-center justify-between gap-3 border-b border-[#21262d] bg-[#1c2128] px-4 py-3"><span className="font-mono text-xs text-[#8b949e]">preview · live sandbox</span><span className="text-xs font-semibold text-[#3fb950]">● Live</span></div>
+        <div className="relative aspect-video bg-[#010409]"><iframe title="Repository preview" src={preview.previewUrl} className="absolute inset-0 h-full w-full border-0" allow="fullscreen" /></div>
+        <div className="flex flex-wrap gap-2 border-t border-[#21262d] bg-[#1c2128] px-4 py-3"><a href={preview.previewUrl} target="_blank" rel="noreferrer" className="rounded-md bg-[#238636] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#2ea043]">Open preview</a><button type="button" onClick={async () => { await navigator.clipboard.writeText(preview.previewUrl); setCopied(true); window.setTimeout(() => setCopied(false), 2000) }} className="rounded-md border border-[#30363d] px-3 py-1.5 text-xs text-[#c9d1d9] hover:border-[#8b949e]">{copied ? 'Copied' : 'Copy link'}</button></div>
+      </div>
+    </section>
+  )
+}
