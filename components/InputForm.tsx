@@ -10,30 +10,35 @@ const demoRepositories = [
     url: 'https://github.com/dgreenheck/threejs-procedural-planets',
     label: 'Procedural Planets',
     category: 'Creative',
+    mark: '3D',
     description: 'Interactive 3D planets — the primary demo.',
   },
   {
     url: 'https://github.com/royalbhati/sqltoerdiagram',
     label: 'SQL to ER Diagram',
     category: 'Developer tool',
+    mark: 'SQL',
     description: 'Turn SQL schemas into entity relationship diagrams.',
   },
   {
     url: 'https://github.com/Leonxlnx/sakura-realm',
     label: 'Sakura Realm',
     category: 'Creative',
+    mark: '桜',
     description: 'A polished visual experience and reliable backup.',
   },
   {
     url: 'https://github.com/TailAdmin/free-react-tailwind-admin-dashboard',
     label: 'TailAdmin Dashboard',
     category: 'Business',
+    mark: 'TA',
     description: 'A production-style admin dashboard with rich UI.',
   },
   {
     url: 'https://github.com/shadcndashboard/shadcndashboard',
     label: 'shadcn Dashboard',
     category: 'Business',
+    mark: 'UI',
     description: 'A heavier dashboard example built with shadcn/ui.',
   },
 ]
@@ -43,9 +48,10 @@ export function InputForm() {
   const [githubUrl, setGithubUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [libraryOpen, setLibraryOpen] = useState(false)
   const hasUrl = githubUrl.trim().length > 0
   const isGithubUrl = /^https:\/\/github\.com\/[^/]+\/[^/?#]+\/?$/i.test(githubUrl.trim())
-  const selectedDemoUrl = demoRepositories.some(repo => repo.url === githubUrl) ? githubUrl : ''
+  const selectedDemo = demoRepositories.find(repo => repo.url === githubUrl)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -100,53 +106,60 @@ export function InputForm() {
             ? 'Use the repository URL, for example https://github.com/owner/repository.'
             : 'Public Vite frontend repositories are the most reliable today.'}
       </p>
-      <div className="flex flex-col gap-1.5 border-t border-[#21262d] pt-4 sm:flex-row sm:items-center sm:gap-3">
-        <label htmlFor="demo-repository" className="shrink-0 text-xs font-medium text-[#8b949e]">
-          Or choose a demo repository
-        </label>
-        <select
-          id="demo-repository"
-          value={selectedDemoUrl}
-          onChange={event => setGithubUrl(event.target.value)}
-          className="h-8 min-w-0 rounded-md border border-[#30363d] bg-[#161b22] px-2 text-xs text-[#c9d1d9] outline-none transition-colors hover:border-[#8b949e] focus:border-[#58a6ff] sm:flex-1"
+      <section aria-labelledby="example-library-heading" className="mt-4 border-t border-[#21262d] pt-5">
+        <button
+          type="button"
+          aria-expanded={libraryOpen}
+          aria-controls="example-library"
+          onClick={() => setLibraryOpen(open => !open)}
+          className="group flex w-full items-center justify-between rounded-lg border border-[#30363d] bg-[#161b22] px-4 py-3 text-left transition-all hover:border-[#58a6ff]/80 hover:bg-[#1f6feb]/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#58a6ff]"
         >
-          <option value="">Select a prepared repository</option>
-          {demoRepositories.map(repo => (
-            <option key={repo.url} value={repo.url}>{repo.label} — {repo.category}</option>
-          ))}
-        </select>
-      </div>
+          <span className="flex items-center gap-3">
+            <span className="flex h-7 w-7 items-center justify-center rounded-md border border-[#58a6ff]/40 bg-[#1f6feb]/15 font-mono text-xs font-semibold text-[#58a6ff]">↗</span>
+            <span>
+              <span id="example-library-heading" className="block text-sm font-medium text-[#f0f6fc]">Browse verified examples</span>
+              <span className="mt-0.5 block text-xs text-[#8b949e]">{demoRepositories.length} public Vite projects, ready to preview</span>
+            </span>
+          </span>
+          <span className="flex items-center gap-2 text-xs text-[#8b949e] transition-colors group-hover:text-[#c9d1d9]">
+            {selectedDemo ? `Selected: ${selectedDemo.label}` : 'Explore'}
+            <span aria-hidden="true" className={`text-base leading-none transition-transform ${libraryOpen ? 'rotate-180' : ''}`}>⌄</span>
+          </span>
+        </button>
 
-      <section aria-labelledby="example-library-heading" className="mt-3 border-t border-[#21262d] pt-5">
-        <div className="flex items-baseline justify-between gap-4">
-          <div>
-            <h2 id="example-library-heading" className="text-sm font-medium text-[#f0f6fc]">Example library</h2>
-            <p className="mt-1 text-xs text-[#8b949e]">Verified public Vite repositories for a quick preview.</p>
+        {libraryOpen && (
+          <div id="example-library" className="mt-3 grid gap-2 sm:grid-cols-2">
+            {demoRepositories.map(repo => {
+              const selected = selectedDemo?.url === repo.url
+              return (
+                <button
+                  key={repo.url}
+                  type="button"
+                  onClick={() => {
+                    setGithubUrl(repo.url)
+                    setLibraryOpen(false)
+                  }}
+                  className={`group relative overflow-hidden rounded-lg border p-4 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#58a6ff] ${selected ? 'border-[#58a6ff] bg-[#1f6feb]/15 shadow-[0_0_0_1px_rgba(88,166,255,0.18)]' : 'border-[#30363d] bg-[#161b22] hover:-translate-y-0.5 hover:border-[#58a6ff]/75 hover:bg-[#1c2128]'}`}
+                >
+                  <span className="absolute right-0 top-0 h-16 w-16 -translate-y-8 translate-x-8 rounded-full bg-[#58a6ff]/[0.07] transition-transform group-hover:scale-150" />
+                  <span className="relative flex items-start gap-3">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-[#30363d] bg-[#0d1117] font-mono text-[11px] font-semibold text-[#58a6ff]">{repo.mark}</span>
+                    <span className="min-w-0">
+                      <span className="flex items-center justify-between gap-2">
+                        <span className="truncate text-sm font-medium text-[#f0f6fc]">{repo.label}</span>
+                        {selected && <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-[#58a6ff]">Selected</span>}
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-[#8b949e]">{repo.description}</span>
+                      <span className="mt-3 flex items-center justify-between font-mono text-[10px] uppercase tracking-wide text-[#8b949e]">
+                        {repo.category}<span className="text-[#58a6ff] transition-transform group-hover:translate-x-0.5">Use this example →</span>
+                      </span>
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wide text-[#58a6ff]">{demoRepositories.length} ready</span>
-        </div>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          {demoRepositories.map(repo => (
-            <article key={repo.url} className="group rounded-md border border-[#30363d] bg-[#161b22] p-3 transition-colors hover:border-[#58a6ff]/70">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-[#f0f6fc]">{repo.label}</p>
-                  <p className="mt-1 text-xs leading-5 text-[#8b949e]">{repo.description}</p>
-                </div>
-                <span className="shrink-0 rounded-full border border-[#30363d] px-1.5 py-0.5 font-mono text-[10px] text-[#8b949e]">{repo.category}</span>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setGithubUrl(repo.url)}
-                className="mt-3 border-[#30363d] bg-transparent text-xs text-[#c9d1d9] hover:border-[#58a6ff] hover:bg-[#1f6feb]/10 hover:text-[#f0f6fc]"
-              >
-                Use example <span aria-hidden="true">→</span>
-              </Button>
-            </article>
-          ))}
-        </div>
+        )}
       </section>
     </form>
   )
