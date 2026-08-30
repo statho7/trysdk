@@ -4,6 +4,8 @@
 
 **Live Application:** [https://trysdk-gamma.vercel.app/](https://trysdk-gamma.vercel.app/)
 
+**Video Presentation** [https://www.loom.com/share/ee1c066b6f584aeeb9430900a622371b](https://www.loom.com/share/ee1c066b6f584aeeb9430900a622371b)
+
 Try SDK is a disposable evaluation environment, not a deployment platform. It starts with public, npm-based Vite repositories and clearly explains when a repository is not supported.
 
 ## What it does
