@@ -1,9 +1,10 @@
 import type { Sandbox } from '@daytona/sdk'
-import { downloadFile, execCommand, uploadFile } from './sandbox'
+import { downloadFile, execCommand } from './sandbox'
 import type { Screenshot } from './types'
 
 const MAX_SCREENSHOTS = 6
 const EVALUATOR_ROOT = 'workspace/evaluator'
+const quoteShell = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
 
 const scoutProgram = String.raw`
 import { chromium } from 'playwright';
@@ -110,7 +111,12 @@ export async function captureScreenshots(
   const outputDir = `${projectRoot}/.trysdk-scout-output`
   const prepareEvaluator = await execCommand(sandbox, `mkdir -p ${EVALUATOR_ROOT}`, 30)
   if (prepareEvaluator.exitCode !== 0) throw new Error(`Could not create evaluator workspace: ${prepareEvaluator.result.slice(-500)}`)
-  await uploadFile(sandbox, scoutProgram, scoutPath)
+  // `sandbox.fs.uploadFile` depends on form-data, which Next/Vercel cannot
+  // bundle for this server-side execution path. Write the static script via
+  // the sandbox shell instead.
+  const encodedProgram = Buffer.from(scoutProgram).toString('base64')
+  const writeScout = await execCommand(sandbox, `printf %s ${quoteShell(encodedProgram)} | base64 -d > ${quoteShell(scoutPath)}`, 30)
+  if (writeScout.exitCode !== 0) throw new Error(`Could not write evaluator script: ${writeScout.result.slice(-500)}`)
   await onProgress?.('Preparing the preloaded Chromium evaluator...')
   const install = await execCommand(
     sandbox,

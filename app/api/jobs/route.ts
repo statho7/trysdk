@@ -65,17 +65,24 @@ async function runPipeline(job: Job) {
     await emitStatus(job.id, 'READY', `App is live at ${previewUrl}`)
     keepSandbox = true
 
-    await emitStatus(job.id, 'ANALYZING', 'Preparing browser-based evaluation...')
-    const screenshots = await captureScreenshots(
-      activeSandbox,
-      project.port,
-      project.projectRoot,
-      message => emitStatus(job.id, 'ANALYZING', message),
-    )
-    await emitStatus(job.id, 'ANALYZING', `Captured ${screenshots.length} screen${screenshots.length === 1 ? '' : 's'} — Gemini is assessing the evidence against your goal...`)
-    const result = await evaluateScreenshots(job.useCase, screenshots)
-    await updateJob(job.id, { result: { ...result, jobId: job.id } })
-    await emitStatus(job.id, 'DONE', 'Evaluation report is ready')
+    try {
+      await emitStatus(job.id, 'ANALYZING', 'Preparing browser-based evaluation...')
+      const screenshots = await captureScreenshots(
+        activeSandbox,
+        project.port,
+        project.projectRoot,
+        message => emitStatus(job.id, 'ANALYZING', message),
+      )
+      await emitStatus(job.id, 'ANALYZING', `Captured ${screenshots.length} screen${screenshots.length === 1 ? '' : 's'} — Gemini is assessing the evidence against your goal...`)
+      const result = await evaluateScreenshots(job.useCase, screenshots)
+      await updateJob(job.id, { result: { ...result, jobId: job.id } })
+      await emitStatus(job.id, 'DONE', 'Evaluation report is ready')
+    } catch (evaluationError) {
+      // The preview is already live. A best-effort report must not relabel a
+      // successful preview as a failed pipeline.
+      console.error('Preview evaluation failed:', evaluationError)
+      await emitStatus(job.id, 'DONE', 'Preview is live. Automated evaluation was unavailable for this run.')
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (err instanceof UnsupportedProjectError) {
