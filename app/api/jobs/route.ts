@@ -1,7 +1,7 @@
 import { waitUntil } from '@vercel/functions'
 import type { Sandbox } from '@daytona/sdk'
 import { createJob, emitStatus, updateJob } from '@/lib/jobs'
-import { createSandbox, cloneRepo, execCommand, getPreviewUrl, startBackground, waitForHttpReady, deleteSandbox } from '@/lib/sandbox'
+import { createSandbox, cloneRepo, execCommand, getPreviewUrl, startBackground, waitForHttpReady, deleteSandbox, PreviewCapacityError } from '@/lib/sandbox'
 import { detectViteProject, UnsupportedProjectError } from '@/lib/detector'
 import { captureScreenshots } from '@/lib/scout'
 import { evaluateScreenshots } from '@/lib/evaluator'
@@ -77,6 +77,8 @@ async function runPipeline(job: Job) {
     const message = err instanceof Error ? err.message : String(err)
     if (err instanceof UnsupportedProjectError) {
       await emitStatus(job.id, 'UNSUPPORTED', message)
+    } else if (err instanceof PreviewCapacityError) {
+      await emitStatus(job.id, 'ERROR', message)
     } else {
       await emitStatus(job.id, 'ERROR', `Pipeline failed: ${message}`)
     }

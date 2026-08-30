@@ -9,6 +9,13 @@ function getAutoStopMinutes(): number {
   return Number.isFinite(configured) && configured > 0 ? configured : 30
 }
 
+export class PreviewCapacityError extends Error {
+  constructor() {
+    super('Preview capacity is full. Close or destroy an existing preview, then try again.')
+    this.name = 'PreviewCapacityError'
+  }
+}
+
 export async function createSandbox(): Promise<Sandbox> {
   try {
     return await getDaytona().create({
@@ -20,7 +27,46 @@ export async function createSandbox(): Promise<Sandbox> {
       autoDeleteInterval: 0,
     })
   } catch (err) {
+    if (isMemoryLimitError(err)) {
+      await reclaimStaleSandboxes()
+      try {
+        return await getDaytona().create({
+          image: 'node:22',
+          resources: { cpu: 2, memory: 4, disk: 10 },
+          autoStopInterval: getAutoStopMinutes(),
+          autoDeleteInterval: 0,
+        })
+      } catch (retryError) {
+        // The provider message includes account-level limits and is not useful to
+        // a person launching a preview. Keep it in server logs for diagnosis,
+        // while returning a small, actionable product error to the UI.
+        console.error('Daytona preview capacity is still exhausted after cleanup:', retryError)
+        if (isMemoryLimitError(retryError)) throw new PreviewCapacityError()
+        throw new Error(`Failed to create sandbox after reclaiming stale previews: ${retryError}`)
+      }
+    }
     throw new Error(`Failed to create sandbox: ${err}`)
+  }
+}
+
+function isMemoryLimitError(error: unknown): boolean {
+  return /Total memory limit exceeded/i.test(String(error))
+}
+
+async function reclaimStaleSandboxes(): Promise<void> {
+  const maxAgeMinutes = Number(process.env.DAYTONA_CAPACITY_CLEANUP_MINUTES ?? 15)
+  const cutoff = Date.now() - (Number.isFinite(maxAgeMinutes) && maxAgeMinutes > 0 ? maxAgeMinutes : 15) * 60_000
+  const daytona = getDaytona()
+
+  for await (const sandbox of daytona.list()) {
+    const createdAt = Date.parse(String(sandbox.createdAt ?? ''))
+    if (Number.isFinite(createdAt) && createdAt < cutoff) {
+      try {
+        await sandbox.delete()
+      } catch {
+        // A concurrent cleanup may already have removed it; continue with the retry.
+      }
+    }
   }
 }
 
@@ -97,7 +143,9 @@ export async function getPreviewUrl(
   port: number
 ): Promise<{ url: string; token: string }> {
   try {
-    const preview = await sandbox.getPreviewLink(port)
+    // Signed URLs are designed for browser embeds: no custom header or proxy
+    // warning acknowledgement is required, and access expires automatically.
+    const preview = await sandbox.getSignedPreviewUrl(port, 3600)
     return { url: preview.url ?? '', token: preview.token ?? '' }
   } catch (err) {
     throw new Error(`Failed to get preview URL for port ${port}: ${err}`)

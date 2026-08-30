@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 const examples = [
   { url: 'https://github.com/dgreenheck/threejs-procedural-planets', owner: 'dgreenheck', repo: 'threejs-procedural-planets', description: '3D · installs in ~8s', color: '#f1e05a' },
@@ -11,11 +10,16 @@ const examples = [
 ]
 
 export function InputForm() {
-  const router = useRouter()
   const [githubUrl, setGithubUrl] = useState('')
   const [useCase, setUseCase] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const handler = () => setLoading(false)
+    window.addEventListener('trysdk:job-finished', handler)
+    return () => window.removeEventListener('trysdk:job-finished', handler)
+  }, [])
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -29,7 +33,7 @@ export function InputForm() {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error ?? 'Something went wrong')
-      router.push(`/results/${data.jobId}`)
+      window.dispatchEvent(new CustomEvent('trysdk:job', { detail: { jobId: data.jobId } }))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to start job')
       setLoading(false)
@@ -65,6 +69,7 @@ export function InputForm() {
           ))}
         </div>
       </section>
+
     </form>
   )
 }
