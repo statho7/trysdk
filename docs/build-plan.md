@@ -128,3 +128,102 @@ Do not add these until the core flow is reliable:
 - natural-language GitHub discovery and parallel repository launches.
 
 When the single-repository experience is stable, discovery can become the next product phase: rank compatible repositories and launch selected candidates in parallel. Validation reports may then use the evidence already stored on `Job` (commit, commands, durations, logs, preview URL, and lifecycle timestamps).
+
+## Provisional final demo script
+
+This script is intentionally provisional. Adjust the timing and wording after three cold-launch rehearsals with the selected demo repository. Target **2 minutes 30 seconds**, leaving 30 seconds of contingency.
+
+### Before taking the stage
+
+- Open Try SDK in a clean browser tab.
+- Keep the selected repository's GitHub page open in a second tab.
+- Copy the tested repository URL to the clipboard.
+- Keep a previously launched preview open in a hidden fallback tab.
+- Keep a short successful screen recording ready.
+- Do not depend on live typing, GitHub search, audience participation, or a second repository.
+
+### 0:00–0:20 — State the problem
+
+**Screen:** Show the repository's GitHub page and README.
+
+**Say:**
+
+> “GitHub made source code one click away. But if I want to experience this project, I still have to clone it, install the right runtime and dependencies, discover the start command, and expose the correct port. That is a lot of setup just to answer one question: what does this actually feel like?”
+
+### 0:20–0:35 — Introduce Try SDK
+
+**Screen:** Switch to the Try SDK landing page.
+
+**Say:**
+
+> “Try SDK gives compatible GitHub frontend repositories a Try button. Paste the repository and we create a disposable environment where you can use the product immediately.”
+
+Paste the prepared URL and click **Try it**.
+
+### 0:35–1:15 — Make the launch visible
+
+**Screen:** Show the real progress timeline, with detailed logs collapsed.
+
+**Say:**
+
+> “Try SDK creates an isolated Daytona sandbox, clones the repository, inspects the project, installs its dependencies, and starts the development server. Nothing is installed on my laptop, and the repository gets its own filesystem, process, and network environment.”
+
+Briefly point out the detected framework, package manager, commit SHA, and Daytona sandbox ID as they appear.
+
+If launch takes longer than expected, add:
+
+> “We are not rendering a screenshot or rebuilding this as a mock. This is the repository's actual code running in its own environment.”
+
+### 1:15–1:50 — Prove that it is real
+
+**Screen:** Open the live preview.
+
+**Say:**
+
+> “And now this GitHub repository is a running application.”
+
+Perform one obvious interaction that changes application state. Then show the share action or QR code if it is reliable.
+
+**Say:**
+
+> “The preview is shareable, so a teammate, recruiter, maintainer, or hackathon judge can experience the project without reproducing the setup.”
+
+Do not wait for audience participation.
+
+### 1:50–2:10 — Demonstrate the disposable model
+
+**Screen:** Return to Try SDK and show the sandbox metadata.
+
+**Say:**
+
+> “This is an evaluation environment, not permanent hosting. When I am finished, I can destroy the sandbox and remove the running code and its dependencies.”
+
+Click **Destroy sandbox** only if deletion has been tested and the UI responds immediately. Otherwise, point to the expiry information and explain that the environment is automatically cleaned up.
+
+### 2:10–2:30 — Close and expand
+
+**Screen:** Show the successful Try SDK result page.
+
+**Say:**
+
+> “Today, Try SDK turns one compatible GitHub frontend repository into a live experience. Next, it can search GitHub and launch the best candidates in parallel, so developers choose software by using it rather than reading about it. Every GitHub repository should have a Try button.”
+
+Stop there. Do not introduce validation agents, compliance, or multiple-model generation unless asked.
+
+### Fallback ladder
+
+1. **Slow launch:** keep the progress view visible and explain that the actual repository is being installed and executed.
+2. **Launch failure:** show the bounded failure state, then open the previously launched preview.
+3. **Preview failure:** open the hidden fallback preview tab.
+4. **Venue connectivity failure:** play the backup recording and narrate it live.
+5. **Slow destruction:** show the expiry metadata and proceed to the close.
+
+### Demo discipline
+
+- Use one repository only.
+- Use a repository that has launched successfully from a cold sandbox three consecutive times.
+- Never claim support for every GitHub repository.
+- Never choose a random repository on stage.
+- Never edit code during the demonstration.
+- Show one real interaction inside the preview.
+- Finish with the same “Try button” statement used at the beginning.
