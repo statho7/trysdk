@@ -54,7 +54,10 @@ async function runPipeline(job: Job) {
     if (install.exitCode !== 0) throw new Error(`Dependency installation failed: ${install.result.slice(-500)}`)
 
     await emitStatus(job.id, 'RUNNING', `Starting Vite on port ${project.port}...`)
-    await startBackground(activeSandbox, 'app', project.startCmd)
+    // Vite serves its client and assets beneath this path, so every browser
+    // request stays on the Vercel-hosted authenticated preview proxy.
+    const previewBasePath = `/api/preview/${job.id}/`
+    await startBackground(activeSandbox, 'app', `${project.startCmd} --base ${quoteShell(previewBasePath)}`)
     await waitForHttpReady(activeSandbox, project.port)
 
     const { url: previewUrl, token: previewToken, proxyUrl: previewProxyUrl, proxyToken: previewProxyToken } = await getPreviewUrl(activeSandbox, project.port)

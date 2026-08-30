@@ -99,8 +99,9 @@ export function InlinePreview() {
   }, [])
 
   if (!preview) return null
-  const proxyDomain = process.env.NEXT_PUBLIC_PREVIEW_PROXY_DOMAIN?.trim().replace(/^https?:\/\//, '').replace(/\/$/, '')
-  const iframeUrl = proxyDomain ? `https://${preview.jobId}.${proxyDomain}/` : preview.previewUrl
+  // Keep the preview on the deployed Try SDK origin. The route attaches the
+  // Daytona token server-side and suppresses the provider warning page.
+  const iframeUrl = `/api/preview/${preview.jobId}/`
   return (
     <section className="mx-auto max-w-[1080px] px-6 pb-12" aria-label="Live repository preview">
       <div className="overflow-hidden rounded-lg border border-[#30363d] bg-[#161b22]">
