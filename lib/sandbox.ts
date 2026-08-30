@@ -1,18 +1,20 @@
 import { Daytona, Sandbox } from '@daytona/sdk'
 
-const daytona = new Daytona()
-const configuredAutoStopMinutes = Number(process.env.DAYTONA_AUTO_STOP_MINUTES ?? 30)
-const autoStopMinutes = Number.isFinite(configuredAutoStopMinutes) && configuredAutoStopMinutes > 0
-  ? configuredAutoStopMinutes
-  : 30
+function getDaytona(): Daytona {
+  return new Daytona()
+}
+
+function getAutoStopMinutes(): number {
+  const configured = Number(process.env.DAYTONA_AUTO_STOP_MINUTES ?? 30)
+  return Number.isFinite(configured) && configured > 0 ? configured : 30
+}
 
 export async function createSandbox(): Promise<Sandbox> {
   try {
-    return await daytona.create({
+    return await getDaytona().create({
       image: 'node:22',
       resources: { cpu: 2, memory: 4, disk: 10 },
-      // Stop an abandoned preview after inactivity, then delete it immediately.
-      autoStopInterval: autoStopMinutes,
+      autoStopInterval: getAutoStopMinutes(),
       autoDeleteInterval: 0,
     })
   } catch (err) {
@@ -109,7 +111,7 @@ export async function deleteSandbox(sandbox: Sandbox): Promise<void> {
 
 export async function deleteSandboxById(sandboxId: string): Promise<void> {
   try {
-    const sandbox = await daytona.get(sandboxId)
+    const sandbox = await getDaytona().get(sandboxId)
     await sandbox.delete()
   } catch (err) {
     throw new Error(`Failed to delete sandbox ${sandboxId}: ${err}`)
