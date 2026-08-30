@@ -1,3 +1,4 @@
+import { DaytonaNotFoundError } from '@daytona/sdk'
 import { deleteSandboxById } from '@/lib/sandbox'
 import { emitStatus, getJob } from '@/lib/jobs'
 
@@ -18,6 +19,11 @@ export async function POST(
     emitStatus(jobId, 'DESTROYED', 'Sandbox destroyed')
     return Response.json({ status: 'destroyed' })
   } catch (err) {
+    if (err instanceof DaytonaNotFoundError) {
+      emitStatus(jobId, 'DESTROYED', 'Sandbox was already removed')
+      return Response.json({ status: 'destroyed', alreadyDestroyed: true })
+    }
+
     const message = err instanceof Error ? err.message : String(err)
     emitStatus(jobId, 'ERROR', `Failed to destroy sandbox: ${message}`)
     return Response.json({ error: message }, { status: 500 })

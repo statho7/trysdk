@@ -25,7 +25,7 @@ export function detectStack(fileList: string[]): StackInfo {
       return {
         language: 'node',
         installCmd: 'cd workspace/repo && npm install',
-        startCmd: 'cd workspace/repo && npm run dev -- --host 0.0.0.0',
+        startCmd: 'cd workspace/repo && npm run dev -- --host 0.0.0.0 --port 5173 --strictPort',
         port: 5173,
       }
     }
