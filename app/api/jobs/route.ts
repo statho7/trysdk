@@ -23,15 +23,15 @@ async function runPipeline(job: Job) {
   let keepSandbox = false
   try {
     // 1. Clone
-    emitStatus(job.id, 'CREATING_SANDBOX', 'Creating an isolated sandbox...')
+    await emitStatus(job.id, 'CREATING_SANDBOX', 'Creating an isolated sandbox...')
     const activeSandbox = await createSandbox()
     sandbox = activeSandbox
-    updateJob(job.id, { sandboxId: activeSandbox.id })
+    await updateJob(job.id, { sandboxId: activeSandbox.id })
 
-    emitStatus(job.id, 'CLONING', 'Cloning repository into sandbox...')
+    await emitStatus(job.id, 'CLONING', 'Cloning repository into sandbox...')
     await cloneRepo(activeSandbox, job.githubUrl)
 
-    emitStatus(job.id, 'INSPECTING', 'Inspecting package files and Vite configuration...')
+    await emitStatus(job.id, 'INSPECTING', 'Inspecting package files and Vite configuration...')
     const { result: lsOutput } = await execCommand(activeSandbox, 'find workspace/repo -maxdepth 4 -type f \\( -name package.json -o -name package-lock.json -o -name pnpm-lock.yaml -o -name yarn.lock \\) -print')
     const fileList = lsOutput.split('\n').filter(Boolean)
     const manifests = await Promise.all(fileList.filter(path => path.endsWith('/package.json')).map(async path => {
@@ -40,31 +40,31 @@ async function runPipeline(job: Job) {
       return { path, content: manifest.result }
     }))
     const project = detectViteProject(manifests, fileList)
-    updateJob(job.id, {
+    await updateJob(job.id, {
       framework: project.framework,
       packageManager: project.packageManager,
       projectRoot: project.projectRoot,
       port: project.port,
     })
 
-    emitStatus(job.id, 'INSTALLING', `Installing dependencies with ${project.packageManager}...`)
+    await emitStatus(job.id, 'INSTALLING', `Installing dependencies with ${project.packageManager}...`)
     const install = await execCommand(activeSandbox, project.installCmd, 180)
     if (install.exitCode !== 0) throw new Error(`Dependency installation failed: ${install.result.slice(-500)}`)
 
-    emitStatus(job.id, 'RUNNING', `Starting Vite on port ${project.port}...`)
+    await emitStatus(job.id, 'RUNNING', `Starting Vite on port ${project.port}...`)
     await startBackground(activeSandbox, 'app', project.startCmd)
     await waitForHttpReady(activeSandbox, project.port)
 
     const { url: previewUrl, token: previewToken } = await getPreviewUrl(activeSandbox, project.port)
-    updateJob(job.id, { previewUrl, previewToken })
-    emitStatus(job.id, 'READY', `App is live at ${previewUrl}`)
+    await updateJob(job.id, { previewUrl, previewToken })
+    await emitStatus(job.id, 'READY', `App is live at ${previewUrl}`)
     keepSandbox = true
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (err instanceof UnsupportedProjectError) {
-      emitStatus(job.id, 'UNSUPPORTED', message)
+      await emitStatus(job.id, 'UNSUPPORTED', message)
     } else {
-      emitStatus(job.id, 'ERROR', `Pipeline failed: ${message}`)
+      await emitStatus(job.id, 'ERROR', `Pipeline failed: ${message}`)
     }
   } finally {
     if (sandbox && !keepSandbox) await deleteSandbox(sandbox)
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Enter a public HTTPS GitHub repository URL, such as https://github.com/owner/repository.' }, { status: 400 })
   }
 
-  const job = createJob(githubUrl.trim(), useCase.trim())
+  const job = await createJob(githubUrl.trim(), useCase.trim())
   // waitUntil keeps the pipeline running after the response is sent (Vercel Fluid Compute)
   waitUntil(runPipeline(job))
 

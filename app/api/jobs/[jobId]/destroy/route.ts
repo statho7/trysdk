@@ -7,28 +7,28 @@ export async function POST(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   const { jobId } = await params
-  const job = getJob(jobId)
+  const job = await getJob(jobId)
 
   if (!job) return Response.json({ error: 'Job not found' }, { status: 404 })
   if (!job.sandboxId) return Response.json({ error: 'Sandbox is not available for this job' }, { status: 409 })
   if (job.status === 'DESTROYED') return Response.json({ status: 'destroyed' })
 
-  emitStatus(jobId, 'DESTROYING', 'Destroying sandbox...')
+  await emitStatus(jobId, 'DESTROYING', 'Destroying sandbox...')
   try {
     await deleteSandboxById(job.sandboxId)
-    emitStatus(jobId, 'DESTROYED', 'Sandbox destroyed')
+    await emitStatus(jobId, 'DESTROYED', 'Sandbox destroyed')
     return Response.json({ status: 'destroyed' })
   } catch (err) {
     const isAlreadyDeleted = err instanceof DaytonaNotFoundError ||
       (err instanceof Error && (/DaytonaNotFoundError|Sandbox with ID or name .* not found/i).test(err.message))
 
     if (isAlreadyDeleted) {
-      emitStatus(jobId, 'DESTROYED', 'Sandbox was already removed')
+      await emitStatus(jobId, 'DESTROYED', 'Sandbox was already removed')
       return Response.json({ status: 'destroyed', alreadyDestroyed: true })
     }
 
     const message = err instanceof Error ? err.message : String(err)
-    emitStatus(jobId, 'ERROR', `Failed to destroy sandbox: ${message}`)
+    await emitStatus(jobId, 'ERROR', `Failed to destroy sandbox: ${message}`)
     return Response.json({ error: message }, { status: 500 })
   }
 }

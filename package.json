@@ -11,6 +11,7 @@
   "dependencies": {
     "@base-ui/react": "^1.7.0",
     "@daytona/sdk": "^0.207.0",
+    "@upstash/redis": "^1.38.3",
     "@vercel/functions": "^3.9.5",
     "ai": "^7.0.85",
     "class-variance-authority": "^0.7.1",

@@ -1,10 +1,11 @@
+import { Redis } from '@upstash/redis'
 import { v4 as uuidv4 } from 'uuid'
 import type { Job, JobStatus, StatusEvent } from './types'
 
-const jobs = new Map<string, Job>()
-const events = new Map<string, StatusEvent[]>()
+const redis = Redis.fromEnv()
+const TTL = 7200 // seconds — matches the sandbox auto-stop window
 
-export function createJob(githubUrl: string, useCase: string): Job {
+export async function createJob(githubUrl: string, useCase: string): Promise<Job> {
   const job: Job = {
     id: uuidv4(),
     githubUrl,
@@ -12,29 +13,29 @@ export function createJob(githubUrl: string, useCase: string): Job {
     status: 'CLONING',
     createdAt: new Date().toISOString(),
   }
-  jobs.set(job.id, job)
-  events.set(job.id, [])
+  await redis.set(`job:${job.id}`, job, { ex: TTL })
   return job
 }
 
-export function getJob(jobId: string): Job | undefined {
-  return jobs.get(jobId)
+export async function getJob(jobId: string): Promise<Job | undefined> {
+  return (await redis.get<Job>(`job:${jobId}`)) ?? undefined
 }
 
-export function updateJob(jobId: string, patch: Partial<Job>): void {
-  const job = jobs.get(jobId)
+export async function updateJob(jobId: string, patch: Partial<Job>): Promise<void> {
+  const job = await getJob(jobId)
   if (!job) return
-  jobs.set(jobId, { ...job, ...patch })
+  await redis.set(`job:${jobId}`, { ...job, ...patch }, { ex: TTL })
 }
 
-export function emitStatus(jobId: string, status: JobStatus, message: string): void {
+export async function emitStatus(jobId: string, status: JobStatus, message: string): Promise<void> {
   const event: StatusEvent = { status, message, timestamp: new Date().toISOString() }
-  const jobEvents = events.get(jobId) ?? []
-  jobEvents.push(event)
-  events.set(jobId, jobEvents)
-  updateJob(jobId, { status })
+  await Promise.all([
+    redis.rpush(`events:${jobId}`, event),
+    redis.expire(`events:${jobId}`, TTL),
+    updateJob(jobId, { status }),
+  ])
 }
 
-export function getEvents(jobId: string): StatusEvent[] {
-  return events.get(jobId) ?? []
+export async function getEvents(jobId: string): Promise<StatusEvent[]> {
+  return redis.lrange<StatusEvent>(`events:${jobId}`, 0, -1)
 }

@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   const { jobId } = await params
-  const job = getJob(jobId)
+  const job = await getJob(jobId)
   if (!job) {
     return Response.json({ error: 'Job not found' }, { status: 404 })
   }
@@ -18,23 +18,23 @@ export async function GET(
 
   const stream = new ReadableStream({
     async start(controller) {
-      const flush = () => {
-        const allEvents = getEvents(jobId)
+      const flush = async () => {
+        const allEvents = await getEvents(jobId)
         const newEvents = allEvents.slice(lastIndex)
         for (const event of newEvents) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
         }
         lastIndex += newEvents.length
 
-        const currentJob = getJob(jobId)
+        const currentJob = await getJob(jobId)
         if (currentJob?.status === 'DONE' || currentJob?.status === 'DESTROYED' || currentJob?.status === 'UNSUPPORTED' || currentJob?.status === 'ERROR') {
           controller.close()
           if (timer) clearInterval(timer)
         }
       }
 
-      flush()
-      timer = setInterval(flush, 500)
+      await flush()
+      timer = setInterval(() => { void flush() }, 500)
     },
   })
 
