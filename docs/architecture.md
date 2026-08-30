@@ -4,37 +4,37 @@
 
 trysdk is a single Next.js 16 App Router application with no external backend, no database, and no auth. All orchestration happens in API routes via the Daytona TypeScript SDK.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Browser                                                        │
-│  app/page.tsx  →  POST /api/jobs  →  /results/[jobId]          │
-│                         ↑                    ↑                  │
-│                    returns {jobId}     SSE + result poll        │
-└─────────────────────────┬──────────────────────────────────────┘
-                          │ fires unawaited background pipeline
-                          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  Background pipeline (lib/)                                     │
-│                                                                 │
-│  jobs.ts          emitStatus() → StatusEvent[]                  │
-│  sandbox.ts       Daytona SDK wrappers                          │
-│  detector.ts      detectStack(fileList) → { installCmd, ... }  │
-│  evaluator.ts     Claude vision → EvalResult                    │
-└─────────────────────────┬──────────────────────────────────────┘
-                          │
-                          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│  Daytona Sandbox (remote, ephemeral)                            │
-│                                                                 │
-│  git clone <githubUrl>                                          │
-│  npm install / pip install -r requirements.txt                  │
-│  nohup npm run dev -- --hostname 0.0.0.0 &                     │
-│  → preview URL exposed                                          │
-│                                                                 │
-│  scripts/scout.playwright.ts (uploaded + executed here)         │
-│  visits /, /login, /dashboard, /products, /admin, /shop        │
-│  saves <route>.png + routes.json to OUTPUT_DIR                  │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    subgraph Browser ["Browser (Client)"]
+        UI["app/page.tsx"] -->|POST /api/jobs| API["API Routes"]
+        API -->|Returns jobId| UI
+        UI --> Results["app/results/:jobId/page.tsx"]
+        Results -->|SSE stream| StreamRoute["/api/jobs/:jobId/stream"]
+        Results -->|Fetch result| ResultRoute["/api/jobs/:jobId/result"]
+    end
+
+    subgraph Pipeline ["Background Pipeline (lib)"]
+        Jobs["jobs.ts - emitStatus"]
+        SandboxLib["sandbox.ts - Daytona SDK wrappers"]
+        Detector["detector.ts - detectStack"]
+        Evaluator["evaluator.ts - Claude Vision"]
+    end
+
+    API -->|Fires unawaited pipeline| Pipeline
+
+    subgraph Daytona ["Daytona Sandbox (Remote, Ephemeral)"]
+        Clone["git clone repo"]
+        Install["npm install / pip install"]
+        Run["nohup npm run dev -- --hostname 0.0.0.0 &"]
+        Preview["Preview URL Exposed"]
+        Scout["scripts/scout.playwright.ts"]
+        Shots["/tmp/screenshots/*.png + routes.json"]
+
+        Clone --> Install --> Run --> Preview --> Scout --> Shots
+    end
+
+    SandboxLib --- Daytona
 ```
 
 ## Job lifecycle
@@ -48,31 +48,45 @@ events: Map<string, StatusEvent[]>
 
 **Job status progression:**
 
-```
-CLONING → INSTALLING → RUNNING → READY → ANALYZING → DONE
-                                                    ↘ ERROR (any step)
+```mermaid
+stateDiagram-v2
+    [*] --> CLONING: Create Job
+    CLONING --> INSTALLING: Repo Cloned
+    INSTALLING --> RUNNING: Dependencies Installed
+    RUNNING --> READY: App Server Started
+    READY --> ANALYZING: Screenshots Captured
+    ANALYZING --> DONE: Evaluation Complete
+    DONE --> [*]
+
+    CLONING --> ERROR: Failure
+    INSTALLING --> ERROR: Failure
+    RUNNING --> ERROR: Failure
+    READY --> ERROR: Failure
+    ANALYZING --> ERROR: Failure
+    ERROR --> [*]
 ```
 
 The pipeline runs as an unawaited async IIFE inside `POST /api/jobs`. The route returns `{ jobId }` before any sandbox work begins.
 
 ## Data flow: screenshots to report
 
-```
-Daytona sandbox
-  └─ scout.playwright.ts
-       └─ saves /tmp/screenshots/*.png + routes.json
+```mermaid
+flowchart TD
+    subgraph Sandbox ["Daytona Sandbox"]
+        Scout["scout.playwright.ts"] -->|Saves| Files["/tmp/screenshots/*.png + routes.json"]
+    end
 
-lib/sandbox.ts downloadFile()
-  └─ downloads each .png as Buffer
+    subgraph Host ["Next.js Server (lib)"]
+        Files -->|downloadFile| Buffer["Buffer in memory (lib/sandbox.ts)"]
+        Buffer -->|evaluateScreenshots| Evaluator["lib/evaluator.ts"]
+        Evaluator -->|Per-screenshot round| VisionNotes["Claude Vision: features & notes"]
+        VisionNotes -->|Aggregation round| FinalEval["Final Claude Call: EvalResult"]
+        FinalEval -->|Store| JobResult["jobs.ts (job.result)"]
+    end
 
-lib/evaluator.ts evaluateScreenshots()
-  ├─ per screenshot: Claude vision call
-  │    → { features: Feature[], notes: string }
-  └─ final aggregation call
-       → EvalResult { fitScore, summary, features, verdict, caveats }
-
-stored in jobs.ts as job.result
-served by GET /api/jobs/[jobId]/result
+    subgraph Client ["Client Browser"]
+        JobResult -->|Fetch result JSON| UI["FitReport UI Component"]
+    end
 ```
 
 ## SSE streaming
@@ -149,14 +163,12 @@ Key functions and the underlying SDK calls they wrap:
 
 ## Frontend components
 
-```
-app/page.tsx
-  └─ InputForm.tsx        controlled form, POST /api/jobs on submit, redirect
+```mermaid
+flowchart TD
+    Page["app/page.tsx (Landing Page)"] --> InputForm["InputForm.tsx"]
 
-app/results/[jobId]/page.tsx   (client component)
-  ├─ StatusFeed.tsx       vertical timeline; current step pulses, done steps get ✓
-  └─ FitReport.tsx        score (color-coded), feature grid, screenshot gallery,
-                          verdict banner + caveats
+    ResultsPage["app/results/:jobId/page.tsx (Client Component)"] --> StatusFeed["StatusFeed.tsx"]
+    ResultsPage --> FitReport["FitReport.tsx"]
 ```
 
 `FitReport` receives an `EvalResult` prop — no internal data fetching. The parent page handles the fetch after the SSE stream closes.

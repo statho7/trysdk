@@ -126,26 +126,28 @@ Keep the stub. Add `// TODO: replace with real Claude vision calls` on each call
 
 Implement `runPipeline(job)` as a module-level async function (not inside the route handler):
 
-```
-emitStatus(CLONING)
-createSandbox()
-cloneRepo(sandbox, githubUrl)            ← sandbox.git.clone() native method
-emitStatus(INSTALLING)
-execCommand: list files → detectStack()
-execCommand: installCmd
-emitStatus(RUNNING)
-startBackground(sandbox, 'app', startCmd) ← session + runAsync:true
-const { url, token } = await getPreviewUrl(sandbox, port)
-updateJob({ previewUrl: url })            ← store token too if Playwright needs it
-emitStatus(READY)
-uploadFile: scout.playwright.ts           // TODO: wire up in Phase 5
-execCommand: install playwright           // TODO: stub this
-execCommand: run scout                    // TODO: stub this
-emitStatus(ANALYZING)
-downloadFile: screenshots                 // TODO: stub this
-evaluateScreenshots()
-updateJob({ result })
-emitStatus(DONE)
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Pipeline as runPipeline(job)
+    participant Jobs as lib/jobs.ts
+    participant Sandbox as Daytona Sandbox
+    participant Evaluator as lib/evaluator.ts
+
+    Pipeline->>Jobs: emitStatus CLONING
+    Pipeline->>Sandbox: createSandbox
+    Pipeline->>Sandbox: cloneRepo githubUrl
+    Pipeline->>Jobs: emitStatus INSTALLING
+    Pipeline->>Sandbox: execCommand: list files and detectStack
+    Pipeline->>Sandbox: execCommand: installCmd
+    Pipeline->>Jobs: emitStatus RUNNING
+    Pipeline->>Sandbox: startBackground and getPreviewUrl
+    Pipeline->>Jobs: updateJob previewUrl and emitStatus READY
+    Pipeline->>Sandbox: upload scout script and run Playwright
+    Pipeline->>Jobs: emitStatus ANALYZING
+    Pipeline->>Sandbox: downloadFile screenshots
+    Pipeline->>Evaluator: evaluateScreenshots with Claude Vision
+    Pipeline->>Jobs: updateJob result and emitStatus DONE
 ```
 
 ### 3b. `GET /api/jobs/[jobId]/stream`

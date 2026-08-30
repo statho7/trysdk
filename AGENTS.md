@@ -1,3 +1,13 @@
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
+
 # AGENTS.md
 
 Guidance for AI coding agents (Claude Code, Cursor, Copilot, etc.) working in this repository.
@@ -10,18 +20,36 @@ Guidance for AI coding agents (Claude Code, Cursor, Copilot, etc.) working in th
 
 Every job flows through exactly this sequence:
 
-```
-POST /api/jobs
-  → createJob() → background async pipeline (never awaited by the route handler)
-      → emitStatus(CLONING)  → Daytona createSandbox()
-      → emitStatus(INSTALLING) → git clone + detectStack() + installCmd
-      → emitStatus(RUNNING)  → start app in background, getPreviewUrl()
-      → emitStatus(READY)    → upload scout.playwright.ts → run it in sandbox
-      → emitStatus(ANALYZING) → download screenshots → evaluateScreenshots()
-      → emitStatus(DONE)     → sandbox.delete() [always in finally]
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client Browser
+    participant API as POST /api/jobs
+    participant Pipeline as Background Pipeline
+    participant Sandbox as Daytona Sandbox
+    participant Evaluator as Claude Vision
+    participant Store as In-Memory Store
 
-GET /api/jobs/[jobId]/stream → SSE polling job's StatusEvent[] every 500ms
-GET /api/jobs/[jobId]/result → returns job.result (EvalResult) or 404
+    User->>API: Submit use case and repo URL
+    API->>Store: createJob and return jobId
+    API-->>User: Return jobId immediately
+    API-)Pipeline: Launch unawaited pipeline
+
+    Pipeline->>Store: emitStatus CLONING
+    Pipeline->>Sandbox: createSandbox and clone repo
+    Pipeline->>Store: emitStatus INSTALLING
+    Pipeline->>Sandbox: detectStack and install dependencies
+    Pipeline->>Store: emitStatus RUNNING
+    Pipeline->>Sandbox: start app server and getPreviewUrl
+    Pipeline->>Store: updateJob previewUrl and emitStatus READY
+    Pipeline->>Sandbox: upload scout script and capture screenshots
+    Pipeline->>Store: emitStatus ANALYZING
+    Pipeline->>Evaluator: evaluateScreenshots
+    Pipeline->>Store: updateJob result and emitStatus DONE
+    Pipeline->>Sandbox: deleteSandbox in finally block
+
+    User->>Store: GET /api/jobs/:id/stream (SSE status updates)
+    User->>Store: GET /api/jobs/:id/result (Fetch EvalResult)
 ```
 
 The route handler returns `{ jobId }` **before** the pipeline completes. The browser then streams status from the SSE endpoint.
@@ -118,3 +146,4 @@ NEXT_PUBLIC_APP_URL=     # used for absolute URLs in client components
 - Do not await the background pipeline in the POST route handler — it must fire and return `jobId` immediately
 - Do not use `runtime = 'edge'` — the SSE route needs Node.js for the polling loop and `maxDuration = 300`
 - Do not call Daytona SDK directly in API routes — always go through `lib/sandbox.ts`
+

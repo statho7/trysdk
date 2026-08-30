@@ -85,21 +85,23 @@ See [docs/build-plan.md](docs/build-plan.md) for the phased implementation roadm
 
 ## Architecture Overview
 
-```
-Browser → POST /api/jobs → [background pipeline]
-                                  ↓
-                           Daytona sandbox
-                           git clone + npm install + npm run dev
-                                  ↓
-                           scout.playwright.ts (inside sandbox)
-                           visits /, /login, /dashboard, ...
-                           saves .png screenshots
-                                  ↓
-                           lib/evaluator.ts
-                           Claude vision → EvalResult
-                                  ↓
-Browser ← GET /api/jobs/[id]/stream (SSE) ← status events
-Browser ← GET /api/jobs/[id]/result ← EvalResult JSON
+```mermaid
+flowchart TD
+    Browser[Browser] -->|POST /api/jobs| Pipeline[Background Pipeline]
+    Pipeline --> Daytona[Daytona Sandbox]
+
+    subgraph DaytonaSandbox [Daytona Sandbox]
+        Daytona --> Clone["git clone + npm install + npm run dev"]
+        Clone --> Scout["scout.playwright.ts inside sandbox"]
+        Scout -->|Visits routes| Shots[Saves PNG Screenshots]
+    end
+
+    Shots --> Evaluator["lib/evaluator.ts (Claude Vision)"]
+    Evaluator --> Result[EvalResult JSON]
+    Result --> Store[(In-Memory Job Store)]
+
+    Store -.->|SSE status stream| Browser
+    Store -.->|Fetch result JSON| Browser
 ```
 
 ## Limitations & Caveats
