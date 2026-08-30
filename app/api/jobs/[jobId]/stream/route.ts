@@ -15,26 +15,44 @@ export async function GET(
   let lastIndex = 0
   const encoder = new TextEncoder()
   let timer: ReturnType<typeof setInterval> | undefined
+  let closed = false
+  let flushing = false
 
   const stream = new ReadableStream({
     async start(controller) {
       const flush = async () => {
-        const allEvents = await getEvents(jobId)
-        const newEvents = allEvents.slice(lastIndex)
-        for (const event of newEvents) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
-        }
-        lastIndex += newEvents.length
+        if (closed || flushing) return
+        flushing = true
+        try {
+          const allEvents = await getEvents(jobId)
+          const newEvents = allEvents.slice(lastIndex)
+          for (const event of newEvents) {
+            if (closed) return
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
+          }
+          lastIndex += newEvents.length
 
-        const currentJob = await getJob(jobId)
-        if (currentJob?.status === 'DONE' || currentJob?.status === 'DESTROYED' || currentJob?.status === 'UNSUPPORTED' || currentJob?.status === 'ERROR') {
-          controller.close()
+          const currentJob = await getJob(jobId)
+          if (currentJob?.status === 'DONE' || currentJob?.status === 'DESTROYED' || currentJob?.status === 'UNSUPPORTED' || currentJob?.status === 'ERROR') {
+            closed = true
+            if (timer) clearInterval(timer)
+            controller.close()
+          }
+        } catch {
+          // The client may have disconnected between polling and enqueueing.
+          closed = true
           if (timer) clearInterval(timer)
+        } finally {
+          flushing = false
         }
       }
 
       await flush()
       timer = setInterval(() => { void flush() }, 500)
+    },
+    cancel() {
+      closed = true
+      if (timer) clearInterval(timer)
     },
   })
 

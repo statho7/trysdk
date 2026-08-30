@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import type { EvalResult } from '@/lib/types'
+import { useEffect, useState } from 'react'
+import type { EvalResult, Screenshot } from '@/lib/types'
 
 function ScoreRing({ score }: { score: number }) {
   const color =
@@ -23,6 +23,18 @@ interface Props {
 
 export function FitReport({ result }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [selectedScreenshot, setSelectedScreenshot] = useState<Screenshot | null>(null)
+
+  useEffect(() => {
+    if (!selectedScreenshot) return
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setSelectedScreenshot(null)
+    }
+
+    window.addEventListener('keydown', closeOnEscape)
+    return () => window.removeEventListener('keydown', closeOnEscape)
+  }, [selectedScreenshot])
 
   const verdictColor =
     result.fitScore <= 4 ? 'border-red-800 bg-red-950/40 text-red-300' :
@@ -78,11 +90,19 @@ export function FitReport({ result }: Props) {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {result.screenshots.filter(s => s.base64).map(shot => (
               <div key={shot.route} className="flex flex-col gap-1">
-                <img
-                  src={`data:image/png;base64,${shot.base64}`}
-                  alt={shot.route}
-                  className="w-full rounded-lg border border-zinc-800 object-cover aspect-video"
-                />
+                <button
+                  type="button"
+                  onClick={() => setSelectedScreenshot(shot)}
+                  className="group relative overflow-hidden rounded-lg border border-zinc-800 text-left outline-none transition hover:border-zinc-500 focus-visible:ring-2 focus-visible:ring-blue-400"
+                  aria-label={`Open screenshot of ${shot.route}`}
+                >
+                  <img
+                    src={`data:${shot.mimeType};base64,${shot.base64}`}
+                    alt={`Screenshot of ${shot.route}`}
+                    className="aspect-video w-full object-cover transition duration-200 group-hover:scale-[1.02]"
+                  />
+                  <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/65 px-2 py-1 text-right text-[11px] text-zinc-200 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">View full size</span>
+                </button>
                 <p className="text-xs text-zinc-500 truncate">{shot.route}</p>
               </div>
             ))}
@@ -102,6 +122,27 @@ export function FitReport({ result }: Props) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {selectedScreenshot && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="screenshot-dialog-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedScreenshot(null)}
+        >
+          <div className="relative flex max-h-full max-w-6xl flex-col gap-3" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4 text-sm text-zinc-200">
+              <div>
+                <p id="screenshot-dialog-title" className="font-medium">{selectedScreenshot.route}</p>
+                <p className="text-xs text-zinc-400">{selectedScreenshot.description}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedScreenshot(null)} className="rounded-md border border-zinc-600 px-3 py-1.5 text-xs font-medium transition hover:border-zinc-300 hover:bg-zinc-800 focus-visible:outline-2 focus-visible:outline-blue-400">Close</button>
+            </div>
+            <img src={`data:${selectedScreenshot.mimeType};base64,${selectedScreenshot.base64}`} alt={`Full-size screenshot of ${selectedScreenshot.route}`} className="max-h-[80vh] max-w-full rounded-lg border border-zinc-700 object-contain shadow-2xl" />
+          </div>
         </div>
       )}
     </div>

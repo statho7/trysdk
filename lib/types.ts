@@ -28,6 +28,7 @@ export interface Screenshot {
   route: string
   description: string
   base64: string
+  mimeType: 'image/jpeg'
 }
 
 export interface EvalResult {

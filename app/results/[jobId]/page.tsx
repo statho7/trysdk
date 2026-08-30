@@ -2,9 +2,14 @@
 
 import { use, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
 import { StatusFeed } from '@/components/StatusFeed'
-import { FitReport } from '@/components/FitReport'
 import type { StatusEvent, EvalResult } from '@/lib/types'
+
+const FitReport = dynamic(
+  () => import('@/components/FitReport').then(module => module.FitReport),
+  { loading: () => <p className="text-sm text-[#8b949e]">Loading evaluation report…</p> },
+)
 
 export default function ResultsPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = use(params)

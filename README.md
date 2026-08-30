@@ -11,7 +11,9 @@ Try SDK is a disposable evaluation environment, not a deployment platform. It st
 1. Paste a public GitHub repository URL.
 2. Try SDK creates an isolated Daytona sandbox and clones the repository.
 3. It inspects the project, installs dependencies, and starts the app on a known preview port.
-4. Open or share the live preview, then explicitly destroy the sandbox when finished.
+4. Playwright explores the running app, follows same-origin links, and captures up to six screenshots.
+5. Gemini 3.7 Flash compares that evidence against the goal you supplied and returns a fit report.
+6. Open or share the live preview, then explicitly destroy the sandbox when finished.
 
 The result page shows launch progress, the repository and commit, detected framework and package manager, sandbox ID, remaining lifetime, logs, and an unsupported or failed state where appropriate.
 
@@ -42,12 +44,13 @@ The UI should say **“Works best with Vite frontend repositories.”** It must 
 
 - Node.js 20+
 - Daytona account and API key
+- Vercel AI Gateway API key (for Gemini evaluation)
 
 ### Install and run
 
 ```bash
 npm install
-# add DAYTONA_API_KEY to .env.local
+# add DAYTONA_API_KEY and AI_GATEWAY_API_KEY to .env.local
 npm run dev
 ```
 
@@ -59,14 +62,15 @@ Open [http://localhost:3000](http://localhost:3000).
 |---|---|
 | `DAYTONA_API_KEY` | Required Daytona API key |
 | `DAYTONA_API_URL` | Optional; defaults to `https://app.daytona.io/api` |
+| `AI_GATEWAY_API_KEY` | Required to run Gemini 3.7 Flash through Vercel AI Gateway |
 | `NEXT_PUBLIC_APP_URL` | Public control-app URL; defaults to `http://localhost:3000` |
 
 ## User journey
 
-1. Paste a rehearsed public Vite repository URL.
-2. Click **Try it** and follow the live stages: inspecting, creating sandbox, cloning, installing, starting, and preview ready.
-3. Use the embedded preview or open it in a new tab; copy its share link if needed.
-4. Inspect the launch metadata and concise logs.
+1. Describe the goal you want the project to satisfy, then paste a public Vite repository URL.
+2. Click **Try it** and follow the live stages through launch, browser inspection, and Gemini evaluation.
+3. Use the live preview while the assessment runs.
+4. Inspect the evidence-backed fit score, visible features, gaps, caveats, and screenshots.
 5. Click **Destroy sandbox** when the evaluation is finished.
 
 ## Architecture overview
@@ -77,6 +81,8 @@ flowchart TD
     Pipeline --> Daytona[Daytona sandbox]
     Daytona --> Clone[Clone, inspect, install, start]
     Clone --> Preview[Preview URL]
+    Preview --> Browser[Playwright screenshots]
+    Browser --> Gemini[Gemini 3.7 Flash report]
     Preview --> Store[(In-memory job store)]
     Store -.->|SSE status updates| Browser
     Browser -->|POST /api/jobs/:id/destroy| Pipeline
@@ -86,7 +92,7 @@ See [docs/architecture.md](docs/architecture.md) for the API and lifecycle, and 
 
 ## Product direction
 
-Today, Try SDK turns one GitHub repository into a live experience. Later, it can search GitHub and launch compatible candidates in parallel so users can evaluate software by using it, not by reading README files. AI validation reports and automated browser testing are future enhancements, not part of the core launch path.
+Today, Try SDK turns one GitHub repository into a live experience and assesses its visible product fit against a user-defined goal. Later, it can search GitHub and launch compatible candidates in parallel so users can evaluate software by using it, not by reading README files.
 
 ## Limitations and cleanup
 

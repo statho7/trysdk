@@ -7,7 +7,7 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   INSTALLING: 'Installing',
   RUNNING: 'Starting app',
   READY: 'App live',
-  ANALYZING: 'Analyzing',
+  ANALYZING: 'Evaluating product fit',
   DONE: 'Done',
   DESTROYING: 'Destroying sandbox',
   DESTROYED: 'Sandbox destroyed',
@@ -15,7 +15,7 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   ERROR: 'Error',
 }
 
-const STATUS_ORDER: JobStatus[] = ['CREATING_SANDBOX', 'CLONING', 'INSPECTING', 'INSTALLING', 'RUNNING', 'READY', 'DESTROYING', 'DESTROYED']
+const STATUS_ORDER: JobStatus[] = ['CREATING_SANDBOX', 'CLONING', 'INSPECTING', 'INSTALLING', 'RUNNING', 'READY', 'ANALYZING', 'DONE', 'DESTROYING', 'DESTROYED']
 
 function StatusIcon({ isCurrent, isError }: { isCurrent: boolean; isError: boolean }) {
   if (isError) {
@@ -57,15 +57,28 @@ export function StatusFeed({ events }: Props) {
     seenStatuses.set(event.status, event)
   }
 
+  // The preview is usable before the evaluator sends its first server-side
+  // update. Surface that handoff immediately instead of leaving the timeline
+  // visually complete at "App live".
+  const isAwaitingEvaluation = seenStatuses.has('READY') &&
+    !seenStatuses.has('ANALYZING') &&
+    !seenStatuses.has('DONE') &&
+    !isError &&
+    !seenStatuses.has('DESTROYED')
+
   const visibleStatuses = isError
     ? [...seenStatuses.keys()]
-    : STATUS_ORDER.filter(s => seenStatuses.has(s))
+    : STATUS_ORDER.filter(status => seenStatuses.has(status) || (status === 'ANALYZING' && isAwaitingEvaluation))
 
   return (
     <div className="flex w-full max-w-xl flex-col gap-3">
       {visibleStatuses.map((status, idx) => {
-        const event = seenStatuses.get(status)!
-        const isCurrent = status === lastEvent.status && !isError
+        const event = seenStatuses.get(status) ?? {
+          status: 'ANALYZING' as const,
+          message: 'Starting browser-based evaluation…',
+          timestamp: lastEvent.timestamp,
+        }
+        const isCurrent = !isError && (status === lastEvent.status || (status === 'ANALYZING' && isAwaitingEvaluation))
         const done = !isCurrent && !isError
 
         return (

@@ -12,7 +12,9 @@ function getAutoStopMinutes(): number {
 export async function createSandbox(): Promise<Sandbox> {
   try {
     return await getDaytona().create({
-      image: 'node:22',
+      // This pins the browser binaries and Debian dependencies to the same
+      // Playwright version used by the evaluator, avoiding per-job downloads.
+      image: 'mcr.microsoft.com/playwright:v1.62.1-noble',
       resources: { cpu: 2, memory: 4, disk: 10 },
       autoStopInterval: getAutoStopMinutes(),
       autoDeleteInterval: 0,
@@ -25,10 +27,12 @@ export async function createSandbox(): Promise<Sandbox> {
 export async function execCommand(
   sandbox: Sandbox,
   cmd: string,
-  timeout?: number
+  timeout?: number,
+  env?: Record<string, string>,
+  cwd?: string
 ): Promise<{ exitCode: number; result: string }> {
   try {
-    const response = await sandbox.process.executeCommand(cmd, undefined, undefined, timeout)
+    const response = await sandbox.process.executeCommand(cmd, cwd, env, timeout)
     return { exitCode: response.exitCode, result: response.result }
   } catch (err) {
     throw new Error(`Command failed [${cmd.slice(0, 80)}]: ${err}`)

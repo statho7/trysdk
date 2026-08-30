@@ -3,6 +3,8 @@ import type { Sandbox } from '@daytona/sdk'
 import { createJob, emitStatus, updateJob } from '@/lib/jobs'
 import { createSandbox, cloneRepo, execCommand, getPreviewUrl, startBackground, waitForHttpReady, deleteSandbox } from '@/lib/sandbox'
 import { detectViteProject, UnsupportedProjectError } from '@/lib/detector'
+import { captureScreenshots } from '@/lib/scout'
+import { evaluateScreenshots } from '@/lib/evaluator'
 import type { Job } from '@/lib/types'
 
 const quoteShell = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
@@ -59,6 +61,18 @@ async function runPipeline(job: Job) {
     await updateJob(job.id, { previewUrl, previewToken })
     await emitStatus(job.id, 'READY', `App is live at ${previewUrl}`)
     keepSandbox = true
+
+    await emitStatus(job.id, 'ANALYZING', 'Preparing browser-based evaluation...')
+    const screenshots = await captureScreenshots(
+      activeSandbox,
+      project.port,
+      project.projectRoot,
+      message => emitStatus(job.id, 'ANALYZING', message),
+    )
+    await emitStatus(job.id, 'ANALYZING', 'Gemini is assessing the screenshot evidence against your goal...')
+    const result = await evaluateScreenshots(job.useCase, screenshots)
+    await updateJob(job.id, { result: { ...result, jobId: job.id } })
+    await emitStatus(job.id, 'DONE', 'Evaluation report is ready')
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (err instanceof UnsupportedProjectError) {
