@@ -117,6 +117,69 @@ Retain the SSE status feed, but make `ready` the primary successful endpoint. Th
 - Deploy the control application and rehearse the three-minute story.
 - Record one successful end-to-end fallback demo.
 
+## Selected demo repositories
+
+### Primary — Procedural Planets
+
+Use [dgreenheck/threejs-procedural-planets](https://github.com/dgreenheck/threejs-procedural-planets).
+
+Why it is the primary:
+
+- It is a visually striking interactive Three.js planet with atmosphere, bloom, procedural terrain, biome colouring, and live controls.
+- Its manifest contains only `three` and `vite`, with a `package-lock.json` suitable for `npm ci`.
+- Its `dev` script is plain `vite`.
+- It has no required API key, database, authentication, backend, or large asset payload.
+- It is MIT licensed.
+
+Verified files:
+
+- [package.json](https://github.com/dgreenheck/threejs-procedural-planets/blob/main/package.json)
+- [Vite configuration](https://github.com/dgreenheck/threejs-procedural-planets/blob/main/vite.config.js)
+- [interactive controls](https://github.com/dgreenheck/threejs-procedural-planets/blob/main/scripts/ui.js)
+- [license](https://github.com/dgreenheck/threejs-procedural-planets/blob/main/LICENSE)
+
+Launch with:
+
+```bash
+npm ci
+npx vite --host 0.0.0.0 --port 5173 --base /
+```
+
+On-stage interaction:
+
+1. Drag the planet to orbit it.
+2. Open **Terrain** and switch the type from `simplex` to `ridgedFractal`.
+3. Increase **Amplitude** so the terrain visibly reforms.
+4. If time permits, adjust the atmosphere thickness or a biome colour.
+
+Do not spend more than 25–30 seconds interacting with the app. One obvious real-time transformation is enough to prove that the preview is live.
+
+### Backup 1 — SQL to ER Diagram
+
+Use [royalbhati/sqltoerdiagram](https://github.com/royalbhati/sqltoerdiagram).
+
+This is the reliability-first backup. It is a small MIT-licensed Vite app, works locally without a backend, and turns SQL into an interactive ER diagram. Paste a prepared `CREATE TABLE` example, then drag or highlight a table to demonstrate the live app.
+
+```bash
+npm ci
+npx vite --host 0.0.0.0 --port 5173 --base /
+```
+
+### Backup 2 — Sakura Realm
+
+Use [Leonxlnx/sakura-realm](https://github.com/Leonxlnx/sakura-realm).
+
+This is the visual-impact backup: an interactive Three.js landscape with clouds, weather, day/night controls, movement, and procedural blossoms. It is heavier than the primary and its package script pins port `5174`, so invoke Vite directly with the required Try SDK port.
+
+```bash
+npm ci
+npx vite --host 0.0.0.0 --port 5173 --base /
+```
+
+### Repository rehearsal rule
+
+The final demo repository is the primary only after it has launched from a new Daytona sandbox three consecutive times through the complete Try SDK interface. If it does not pass that test, switch to Backup 1 rather than debugging visual code or dependencies close to submission.
+
 ## Deferred work
 
 Do not add these until the core flow is reliable:
