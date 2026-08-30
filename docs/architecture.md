@@ -105,14 +105,28 @@ The client (`app/results/[jobId]/page.tsx`) reads via `EventSource`. Once `DONE`
 
 The `startCmd` always includes `0.0.0.0` binding so Daytona can expose the port.
 
-## Evaluator (Claude vision)
+## Evaluator (Claude vision via Vercel AI Gateway)
 
-`lib/evaluator.ts` makes two rounds of Claude calls:
+`lib/evaluator.ts` uses the Vercel AI SDK (`ai` package) routed through the **Vercel AI Gateway** — not `@anthropic-ai/sdk` directly. This gives observability, failover, and OIDC auth with no per-key management.
 
-1. **Per-screenshot round**: sends each `Screenshot.base64` to `claude-sonnet-4-6` with the user's use case and the route name. Expects JSON back: `{ features: Feature[], notes: string }`.
-2. **Aggregation round**: sends all per-screenshot notes in one call to produce the final `EvalResult` with `fitScore` (0–10), `summary`, `verdict`, and `caveats`.
+Model slug: `anthropic/claude-sonnet-4.6` (dots, not dashes).
 
-Currently stubbed with realistic mock data marked `// TODO:`.
+Two rounds of calls:
+
+1. **Per-screenshot round**: sends each `Screenshot.base64` as an image content part alongside the use case and route name. Expects structured JSON back: `{ features: Feature[], notes: string }`.
+   ```ts
+   import { generateText } from 'ai'
+   await generateText({
+     model: 'anthropic/claude-sonnet-4.6',
+     messages: [{ role: 'user', content: [
+       { type: 'image', image: Buffer.from(base64, 'base64'), mimeType: 'image/png' },
+       { type: 'text', text: prompt }
+     ]}]
+   })
+   ```
+2. **Aggregation round**: sends all per-screenshot notes as text to produce the final `EvalResult` (`fitScore` 0–10, `summary`, `verdict`, `caveats`).
+
+Auth: `VERCEL_OIDC_TOKEN` (auto-provisioned by `vercel env pull .env.local`; auto-refreshed on Vercel). Currently stubbed with mock data marked `// TODO:`.
 
 ## Sandbox wrapper design
 

@@ -16,7 +16,7 @@
 | Framework | Next.js 16 App Router, TypeScript strict |
 | UI | Tailwind CSS + shadcn/ui |
 | Sandbox | Daytona TypeScript SDK (`@daytona/sdk`) |
-| AI | Anthropic JS SDK (`@anthropic-ai/sdk`), claude-sonnet-4-6 |
+| AI | Vercel AI SDK (`ai`), routed through Vercel AI Gateway → `anthropic/claude-sonnet-4.6` |
 | Deployment | Vercel (zero extra config) |
 | Storage | In-memory `Map` — no database |
 
@@ -32,8 +32,9 @@
 
 ```bash
 npm install
-cp .env.example .env.local
-# edit .env.local with your keys
+vercel link                     # connect to your Vercel project
+vercel env pull .env.local      # provisions VERCEL_OIDC_TOKEN for AI Gateway
+# add DAYTONA_API_KEY to .env.local
 npm run dev
 ```
 
@@ -43,9 +44,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 | Variable | Description |
 |---|---|
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude vision calls |
+| `VERCEL_OIDC_TOKEN` | Provisioned automatically by `vercel env pull .env.local` — authenticates AI Gateway calls |
 | `DAYTONA_API_KEY` | Daytona API key |
-| `DAYTONA_API_URL` | Daytona API base URL |
+| `DAYTONA_API_URL` | Optional; defaults to `https://app.daytona.io/api` |
 | `NEXT_PUBLIC_APP_URL` | Public URL (default: `http://localhost:3000`) |
 
 ## Using the app

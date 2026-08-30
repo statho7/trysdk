@@ -11,10 +11,15 @@ Phased implementation order — each phase produces something runnable.
 1. `npx create-next-app@latest trysdk --typescript --tailwind --app --no-src-dir`
 2. Install dependencies:
    ```bash
-   npm install @anthropic-ai/sdk @daytonaio/sdk
+   npm install ai @daytona/sdk
    npm install -D @types/node
    npx shadcn@latest init
    npx shadcn@latest add button input textarea card badge
+   ```
+3. Link to Vercel and pull env (required for AI Gateway OIDC auth):
+   ```bash
+   vercel link
+   vercel env pull .env.local   # writes VERCEL_OIDC_TOKEN
    ```
 3. Create `.env.example` with all four keys
 4. Create every file in the project structure with its full skeleton — empty functions with correct signatures and return type annotations
@@ -233,28 +238,36 @@ return Response.json(job.result)
 
 ---
 
-## Phase 6 — Real Claude vision
+## Phase 6 — Real Claude vision via AI Gateway
 
-**Goal:** Evaluator makes real Anthropic API calls.
+**Goal:** Evaluator makes real AI Gateway calls.
 
-Replace the stub in `lib/evaluator.ts`:
+Replace the stub in `lib/evaluator.ts` using the Vercel AI SDK:
 
-1. Per-screenshot call:
 ```ts
-anthropic.messages.create({
-  model: 'claude-sonnet-4-6',
-  max_tokens: 1024,
+import { generateText } from 'ai'
+
+// 1. Per-screenshot call
+const { text } = await generateText({
+  model: 'anthropic/claude-sonnet-4.6',   // dots not dashes
   messages: [{
     role: 'user',
     content: [
-      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: screenshot.base64 } },
+      { type: 'image', image: Buffer.from(screenshot.base64, 'base64'), mimeType: 'image/png' },
       { type: 'text', text: `Use case: ${useCase}\nRoute: ${screenshot.route}\nWhat features are visible? Does it support this use case? Reply as JSON: { features: [...], notes: string }` }
     ]
   }]
 })
+const parsed = JSON.parse(text) // { features, notes }
+
+// 2. Aggregation call — all notes as text → final EvalResult JSON
+const { text: summary } = await generateText({
+  model: 'anthropic/claude-sonnet-4.6',
+  prompt: `Given these per-route analyses: ${allNotes}\nProduce a final EvalResult as JSON: { fitScore, summary, verdict, caveats }`
+})
 ```
 
-2. Aggregation call: sends all per-screenshot notes as text, requests final `EvalResult` JSON.
+Auth: `VERCEL_OIDC_TOKEN` from `.env.local` (run `vercel env pull .env.local` if expired). No `ANTHROPIC_API_KEY` needed.
 
 **Checkpoint:** Real fit reports generated from live screenshots.
 

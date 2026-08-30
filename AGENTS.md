@@ -65,9 +65,26 @@ The route handler returns `{ jobId }` **before** the pipeline completes. The bro
 - Call `emitStatus(jobId, status, message)` before each meaningful pipeline step
 - The `message` string is displayed directly to the user — write it in plain English
 
+### AI Gateway (evaluator)
+- `lib/evaluator.ts` uses the Vercel AI SDK (`ai` package) — **not** `@anthropic-ai/sdk`
+- Model slug: `anthropic/claude-sonnet-4.6` (dots, not dashes — AI Gateway format)
+- Vision calls use `generateText` with multimodal message content:
+  ```ts
+  import { generateText } from 'ai'
+  await generateText({
+    model: 'anthropic/claude-sonnet-4.6',
+    messages: [{ role: 'user', content: [
+      { type: 'image', image: Buffer.from(base64, 'base64'), mimeType: 'image/png' },
+      { type: 'text', text: prompt }
+    ]}]
+  })
+  ```
+- Auth is OIDC via `VERCEL_OIDC_TOKEN` — no `ANTHROPIC_API_KEY` needed
+- Local dev: run `vercel env pull .env.local` to get a fresh token (~24h validity)
+
 ### Evaluator stubs
 - `lib/evaluator.ts` is currently stubbed — mark any placeholder with `// TODO:`
-- Do not remove the TODO markers until real Claude vision calls are wired up
+- Do not remove the TODO markers until real AI Gateway calls are wired up
 
 ### Scout script
 - `scripts/scout.playwright.ts` runs inside a Daytona sandbox, not in Node locally
@@ -82,7 +99,7 @@ The route handler returns `{ jobId }` **before** the pipeline completes. The bro
 ## Environment variables
 
 ```
-ANTHROPIC_API_KEY=       # required for evaluator.ts
+VERCEL_OIDC_TOKEN=       # auto-provisioned by: vercel env pull .env.local (AI Gateway auth)
 DAYTONA_API_KEY=         # required for sandbox.ts
 DAYTONA_API_URL=         # optional; defaults to https://app.daytona.io/api
 NEXT_PUBLIC_APP_URL=     # used for absolute URLs in client components

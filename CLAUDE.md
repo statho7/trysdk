@@ -32,6 +32,27 @@ The core data flow is:
 
 `scripts/scout.playwright.ts` runs **inside** the Daytona sandbox (not locally). It reads `APP_URL` and `OUTPUT_DIR` from env, visits common routes, and saves `<route-slug>.png` + `routes.json`.
 
+## AI Gateway (Vercel AI SDK)
+
+`lib/evaluator.ts` uses the Vercel AI SDK (`ai` package) routed through the Vercel AI Gateway — **not** `@anthropic-ai/sdk`.
+
+```ts
+import { generateText } from 'ai'
+
+const { text } = await generateText({
+  model: 'anthropic/claude-sonnet-4.6',   // dots not dashes — gateway slug format
+  messages: [{
+    role: 'user',
+    content: [
+      { type: 'image', image: Buffer.from(base64, 'base64'), mimeType: 'image/png' },
+      { type: 'text', text: `Use case: ${useCase}. Analyze this screenshot...` }
+    ]
+  }]
+})
+```
+
+Auth is OIDC — no `ANTHROPIC_API_KEY` needed. Run `vercel env pull .env.local` to get `VERCEL_OIDC_TOKEN` for local dev (valid ~24h; re-pull when expired). On Vercel deployments the token is auto-refreshed.
+
 ## Daytona SDK notes
 
 Package is `@daytona/sdk` — `import { Daytona } from '@daytona/sdk'`. Key API shapes that differ from what you might expect:
@@ -53,8 +74,8 @@ Package is `@daytona/sdk` — `import { Daytona } from '@daytona/sdk'`. Key API 
 ## Environment variables
 
 ```
-ANTHROPIC_API_KEY=
-DAYTONA_API_KEY=
-DAYTONA_API_URL=
+VERCEL_OIDC_TOKEN=      # auto-provisioned by: vercel env pull .env.local
+DAYTONA_API_KEY=        # required
+DAYTONA_API_URL=        # optional; defaults to https://app.daytona.io/api
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
