@@ -13,7 +13,10 @@ async function proxyPreview(request: Request, { params }: Context): Promise<Resp
   }
 
   const upstream = new URL(job.previewProxyUrl)
-  upstream.pathname = `/${path.join('/')}`
+  // Vite was started with this exact base path. Preserve it at the upstream
+  // too: sending `/` makes Vite redirect to the base and causes a loop.
+  const basePath = `/api/preview/${jobId}`
+  upstream.pathname = `${basePath}/${path.join('/')}`
   upstream.search = new URL(request.url).search
 
   const headers = new Headers(request.headers)
