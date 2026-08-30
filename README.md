@@ -2,6 +2,8 @@
 
 > Paste a compatible public GitHub frontend repository and open a temporary, shareable live preview—without setting it up locally.
 
+**Live Application:** [https://trysdk-gamma.vercel.app/](https://trysdk-gamma.vercel.app/)
+
 Try SDK is a disposable evaluation environment, not a deployment platform. It starts with public, npm-based Vite repositories and clearly explains when a repository is not supported.
 
 ## What it does
@@ -30,7 +32,7 @@ The UI should say **“Works best with Vite frontend repositories.”** It must 
 | Framework | Next.js 16 App Router, TypeScript strict |
 | UI | Tailwind CSS + shadcn/ui |
 | Sandbox | Daytona TypeScript SDK (`@daytona/sdk`) |
-| Deployment | Vercel |
+| Deployment | Vercel ([trysdk-gamma.vercel.app](https://trysdk-gamma.vercel.app/)) |
 | State | In-memory `Map` — no database |
 | Updates | SSE status stream |
 
