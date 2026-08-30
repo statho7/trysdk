@@ -6,7 +6,7 @@ interface SearchResult {
   fullName: string
   url: string
   excerpt: string
-  vite: boolean | null
+  stack: 'vite' | 'astro' | 'static' | null
 }
 
 const REPO_URL_PATTERN = /github\.com\/[^/\s]+\/[^/\s]+/i
@@ -127,14 +127,14 @@ export function InputForm() {
                   <span className="block truncate font-mono text-[13px] text-[var(--gh-accent)]">{result.fullName}</span>
                   {result.excerpt && <span className="block truncate text-xs text-[var(--gh-fg-subtle)]">{result.excerpt}</span>}
                 </span>
-                {result.vite && <span className="shrink-0 rounded-full border border-[var(--gh-success)]/40 px-2 py-0.5 text-[11px] text-[var(--gh-success)]">Vite app ✓</span>}
+                {result.stack && <span className="shrink-0 rounded-full border border-[var(--gh-success)]/40 px-2 py-0.5 text-[11px] text-[var(--gh-success)]">{result.stack} ✓</span>}
               </button>
             ))
           )}
         </div>
       )}
       {error && <p role="alert" className="mt-3 text-sm text-[var(--gh-danger)]">{error}</p>}
-      <p className="mt-3 text-xs leading-5 text-[var(--gh-fg-subtle)]">Works with public Vite projects — React, Vue, Svelte, Solid, and vanilla JS. We explore the running preview, capture screenshots, then compare the visible product to your goal.</p>
+      <p className="mt-3 text-xs leading-5 text-[var(--gh-fg-subtle)]">Works with public Vite and Astro projects, plus dependency-free static HTML sites. Other stacks return a clear compatibility message before dependencies install.</p>
 
       <section aria-labelledby="examples-heading" className="mt-7">
         <h2 id="examples-heading" className="mb-2 text-xs font-semibold text-[var(--gh-fg-muted)]">Verified examples</h2>

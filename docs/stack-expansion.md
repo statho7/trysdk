@@ -1,6 +1,7 @@
 # Extending Try SDK beyond Vite
 
-Status: roadmap (post-hackathon). Nothing in this document is in scope before the 17:00 submission.
+Status: partially implemented for the demo. Vite, Astro, and dependency-free static HTML
+are supported through the same launch-plan contract; the remaining tiers are roadmap work.
 
 Try SDK is deliberately Vite-first today. This document describes how to widen repository
 coverage without giving up the property that makes the product credible: **every supported
@@ -27,19 +28,24 @@ framework-agnostic and is reused by every tier below.
 
 ---
 
-## Tier 1 — Adapter table (days, covers most frontend repos)
+## Tier 1 — Adapter table
 
 Each framework becomes a small adapter: *how to recognise it, how to start it, which port it uses*.
 
 | Framework | Detection signal | Start command | Port | Notes |
 | --- | --- | --- | --- | --- |
-| Static HTML | no `package.json`, root `index.html` | `npx serve -l 5173 .` | 5173 | ~20 lines; unlocks the long tail (portfolios, CSS demos, single-file games) |
+| Static HTML | no `package.json`, root `index.html` | built-in Node static server | 5173 | Implemented; root-relative assets are rewritten for the inline proxy |
 | Next.js | `next` in deps / `next.config.*` | `next dev -p 3000 -H 0.0.0.0` | 3000 | flags differ from Vite (`-p`/`-H`); no host-check issues in dev |
 | SvelteKit | `vite dev` script | *already matched* by the `\bvite\b` regex | 5173 | verify with one example repo |
-| Astro | `astro` in deps | `astro dev --host 0.0.0.0 --port 5173` | 5173 | Vite-based; flags supported natively |
+| Astro | `astro` in deps | `astro dev --host 0.0.0.0 --port 5173 --base <preview-path>` | 5173 | Implemented and cold-tested against a public starter |
 | Nuxt 3 | `nuxt` in deps | `nuxt dev --host 0.0.0.0 --port 5173` | 5173 | Vite-based by default |
 | Remix / React Router 7 | `@remix-run/*` or `react-router` dev script | `react-router dev --host 0.0.0.0 --port 5173` | 5173 | Vite-based |
 | Generic Node server | `start`/`dev` script, none of the above | `npm run start` + port discovery (Tier 2) | discovered | Express, Fastify, Hono demos |
+
+For the demo, unverified adapters remain intentionally rejected rather than partially
+launched: Next.js, Nuxt, Remix/React Router, Docker/Compose, and generic Node servers all
+return a compatibility message before dependency installation. Next.js requires a build-time
+`basePath` to be safe inside the inline preview proxy, so it belongs in the next verified tier.
 
 Rules for every adapter:
 

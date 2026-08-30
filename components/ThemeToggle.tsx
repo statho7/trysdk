@@ -1,18 +1,25 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
+
+const THEME_CHANGE_EVENT = 'trysdk:theme-change'
+
+function subscribe(listener: () => void) {
+  window.addEventListener(THEME_CHANGE_EVENT, listener)
+  return () => window.removeEventListener(THEME_CHANGE_EVENT, listener)
+}
+
+function getThemeSnapshot() {
+  return document.documentElement.classList.contains('dark')
+}
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(true)
-
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'))
-  }, [])
+  const dark = useSyncExternalStore(subscribe, getThemeSnapshot, () => true)
 
   function toggle() {
     const next = !dark
-    setDark(next)
     document.documentElement.classList.toggle('dark', next)
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT))
     try {
       localStorage.setItem('trysdk-theme', next ? 'dark' : 'light')
     } catch {

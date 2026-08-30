@@ -2,7 +2,7 @@ import { waitUntil } from '@vercel/functions'
 import type { Sandbox } from '@daytona/sdk'
 import { createJob, emitStatus, updateJob } from '@/lib/jobs'
 import { createSandbox, cloneRepo, execCommand, getPreviewUrl, startBackground, waitForHttpReady, deleteSandbox, PreviewCapacityError } from '@/lib/sandbox'
-import { detectViteProject, UnsupportedProjectError } from '@/lib/detector'
+import { detectProject, startCommandFor, UnsupportedProjectError } from '@/lib/detector'
 import { captureScreenshots } from '@/lib/scout'
 import { evaluateScreenshots } from '@/lib/evaluator'
 import type { Job } from '@/lib/types'
@@ -32,6 +32,7 @@ function isPublicGithubRepositoryUrl(value: string): boolean {
 async function runPipeline(job: Job, gatewayApiKey?: string) {
   let sandbox: Sandbox | null = null
   let keepSandbox = false
+  let framework: Job['framework']
   try {
     // 1. Clone
     await emitStatus(job.id, 'CREATING_SANDBOX', 'Creating an isolated sandbox...')
@@ -42,23 +43,24 @@ async function runPipeline(job: Job, gatewayApiKey?: string) {
     await emitStatus(job.id, 'CLONING', 'Cloning repository into sandbox...')
     await cloneRepo(activeSandbox, job.githubUrl)
 
-    await emitStatus(job.id, 'INSPECTING', 'Inspecting package files and Vite configuration...')
-    const { result: lsOutput } = await execCommand(activeSandbox, 'find workspace/repo -maxdepth 4 -type f \\( -name package.json -o -name package-lock.json -o -name pnpm-lock.yaml -o -name yarn.lock -o -name bun.lock -o -name bun.lockb \\) -print')
+    await emitStatus(job.id, 'INSPECTING', 'Checking the repository for a supported frontend stack...')
+    const { result: lsOutput } = await execCommand(activeSandbox, 'find workspace/repo -maxdepth 4 -type f \\( -name package.json -o -name package-lock.json -o -name pnpm-lock.yaml -o -name yarn.lock -o -name bun.lock -o -name bun.lockb -o -name index.html -o -name Dockerfile -o -name docker-compose.yml -o -name docker-compose.yaml -o -name compose.yml -o -name compose.yaml \\) -print')
     const fileList = lsOutput.split('\n').filter(Boolean)
     const manifests = await Promise.all(fileList.filter(path => path.endsWith('/package.json')).map(async path => {
       const manifest = await execCommand(activeSandbox, `cat -- ${quoteShell(path)}`)
       if (manifest.exitCode !== 0) throw new Error(`Could not read ${path}: ${manifest.result}`)
       return { path, content: manifest.result }
     }))
-    const project = detectViteProject(manifests, fileList)
+    const project = detectProject(manifests, fileList)
     await updateJob(job.id, {
       framework: project.framework,
       packageManager: project.packageManager,
       projectRoot: project.projectRoot,
       port: project.port,
     })
+    framework = project.framework
 
-    await emitStatus(job.id, 'INSTALLING', `Installing dependencies with ${project.packageManager}...`)
+    await emitStatus(job.id, 'INSTALLING', project.packageManager === 'none' ? 'Preparing static files...' : `Installing dependencies with ${project.packageManager}...`)
     const installTimeoutSeconds = getInstallTimeoutSeconds()
     const install = await execCommand(
       activeSandbox,
@@ -70,11 +72,11 @@ async function runPipeline(job: Job, gatewayApiKey?: string) {
     }
     if (install.exitCode !== 0) throw new Error(`Dependency installation failed: ${install.result.slice(-500)}`)
 
-    await emitStatus(job.id, 'RUNNING', `Starting Vite on port ${project.port}...`)
-    // Vite serves its client and assets beneath this path, so every browser
+    await emitStatus(job.id, 'RUNNING', `Starting ${project.framework === 'static' ? 'static site' : project.framework === 'astro' ? 'Astro' : 'Vite'} on port ${project.port}...`)
+    // Supported framework adapters serve beneath this path so every browser
     // request stays on the Vercel-hosted authenticated preview proxy.
     const previewBasePath = `/api/preview/${job.id}/`
-    await startBackground(activeSandbox, 'app', `${project.startCmd} --base ${quoteShell(previewBasePath)}`)
+    await startBackground(activeSandbox, 'app', startCommandFor(project, previewBasePath))
     await waitForHttpReady(activeSandbox, project.port)
 
     const { url: previewUrl, token: previewToken, proxyUrl: previewProxyUrl, proxyToken: previewProxyToken } = await getPreviewUrl(activeSandbox, project.port)
@@ -116,6 +118,9 @@ async function runPipeline(job: Job, gatewayApiKey?: string) {
       await emitStatus(job.id, 'UNSUPPORTED', message)
     } else if (err instanceof PreviewCapacityError) {
       await emitStatus(job.id, 'ERROR', message)
+    } else if (/Application did not become ready on port/i.test(message)) {
+      const stack = framework === 'astro' ? 'Astro project' : framework === 'vite' ? 'Vite project' : 'project'
+      await emitStatus(job.id, 'ERROR', `This ${stack} did not start a preview server on the required port. It may use custom server settings or need services that Try SDK does not support yet.`)
     } else {
       await emitStatus(job.id, 'ERROR', `Pipeline failed: ${message}`)
     }

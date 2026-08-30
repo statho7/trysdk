@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server'
-import { Parallel } from 'parallel-web'
 
 export const runtime = 'nodejs'
+
+interface ParallelResult {
+  url: string
+  title?: string
+  excerpts?: string[]
+}
 
 export interface SearchResult {
   fullName: string
   url: string
   excerpt: string
-  vite: boolean | null
+  stack: 'vite' | 'astro' | 'static' | null
 }
 
 const REPO_PATH = /^https?:\/\/github\.com\/([^/]+)\/([^/#?]+)/
@@ -22,36 +27,29 @@ function toRepoRoot(rawUrl: string): { fullName: string; url: string } | null {
   return { fullName: `${owner}/${repo}`, url: `https://github.com/${owner}/${repo}` }
 }
 
-interface PackageManifest {
-  dependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-  scripts?: Record<string, string>
-}
-
-async function probeViteApplication(fullName: string): Promise<boolean> {
+async function probeStack(fullName: string): Promise<SearchResult['stack']> {
   try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 2500)
-    const [manifestResponse, htmlResponse] = await Promise.all([
-      fetch(`https://raw.githubusercontent.com/${fullName}/HEAD/package.json`, { signal: controller.signal }),
-      fetch(`https://raw.githubusercontent.com/${fullName}/HEAD/index.html`, { signal: controller.signal }),
-    ])
-    clearTimeout(timer)
-    if (!manifestResponse.ok || !htmlResponse.ok) return false
-    const manifest = JSON.parse(await manifestResponse.text()) as PackageManifest
-    const hasVite = Boolean(
-      manifest.dependencies?.vite ||
-      manifest.devDependencies?.vite ||
-      Object.values(manifest.scripts ?? {}).some(script => /\bvite\b/.test(script))
-    )
-    const hasLaunchScript = Boolean(manifest.scripts?.dev || manifest.scripts?.start)
-
-    return Boolean(
-      hasVite &&
-      hasLaunchScript
-    )
+    const fetchRaw = async (path: string) => {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 2500)
+      try {
+        return await fetch(`https://raw.githubusercontent.com/${fullName}/HEAD/${path}`, { signal: controller.signal })
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+    const response = await fetchRaw('package.json')
+    if (response.ok) {
+      const text = await response.text()
+      if (/"astro"/.test(text)) return 'astro'
+      if (/"vite"/.test(text)) return 'vite'
+      return null
+    }
+    if (response.status !== 404) return null
+    const indexResponse = await fetchRaw('index.html')
+    return indexResponse.ok ? 'static' : null
   } catch {
-    return false
+    return null
   }
 }
 
@@ -63,26 +61,28 @@ export async function GET(request: Request) {
   if (!apiKey) return NextResponse.json({ results: [], disabled: true })
 
   try {
-    const searchQuery = query.slice(0, 160)
-    const parallel = new Parallel({ apiKey, timeout: 10_000, maxRetries: 1 })
-    const data = await parallel.search({
-      objective: `Find public GitHub repository root pages for self-contained frontend applications built with Vite that match this product goal: "${query}". Exclude libraries, tutorials, issue pages, and non-Vite projects.`,
-      search_queries: [
-        `${searchQuery} Vite GitHub repository`,
-        `${searchQuery} frontend Vite demo`,
-      ],
-      mode: 'fast',
-      max_chars_total: 2_400,
-      advanced_settings: {
-        max_results: 15,
-        source_policy: { include_domains: ['github.com'] },
-        excerpt_settings: { max_chars_per_result: 240 },
+    const response = await fetch('https://api.parallel.ai/v1beta/search', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'parallel-beta': 'search-extract-2025-10-10',
       },
+      body: JSON.stringify({
+        objective: `Find public GitHub repositories matching: "${query}" that are self-contained frontend projects built with Vite, Astro, or plain static HTML. Prefer repository-root demo pages. Exclude Next.js, Nuxt, Docker, databases, and backend-only projects.`,
+        search_queries: [`${query} vite github`, `${query} astro github`, `${query} static html github`],
+        mode: 'fast',
+        source_policy: { include_domains: ['github.com'] },
+        max_results: 10,
+        excerpts: { max_chars_per_result: 240 },
+      }),
     })
+    if (!response.ok) return NextResponse.json({ results: [] })
 
+    const data = (await response.json()) as { results?: ParallelResult[] }
     const seen = new Set<string>()
     const repos: { fullName: string; url: string; excerpt: string }[] = []
-    for (const result of data.results) {
+    for (const result of data.results ?? []) {
       const repo = toRepoRoot(result.url)
       if (!repo || seen.has(repo.url)) continue
       seen.add(repo.url)
@@ -98,14 +98,14 @@ export async function GET(request: Request) {
         .trim()
         .slice(0, 140)
       repos.push({ ...repo, excerpt })
-      if (repos.length >= 12) break
+      if (repos.length >= 5) break
     }
 
-    const viteChecks = await Promise.all(repos.map(repo => probeViteApplication(repo.fullName)))
-    const results: SearchResult[] = repos
-      .filter((_, index) => viteChecks[index])
-      .slice(0, 5)
-      .map(repo => ({ ...repo, vite: true }))
+    const probes = await Promise.allSettled(repos.map(repo => probeStack(repo.fullName)))
+    const results: SearchResult[] = repos.map((repo, index) => ({
+      ...repo,
+      stack: probes[index].status === 'fulfilled' ? (probes[index] as PromiseFulfilledResult<SearchResult['stack']>).value : null,
+    }))
 
     return NextResponse.json({ results })
   } catch {

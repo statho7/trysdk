@@ -12,7 +12,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## What this project is
 
-**Try SDK** turns a compatible public GitHub frontend repository into a temporary, shareable live preview. It is a disposable evaluation environment, not a deployment platform. The first reliable recipe is a public npm-based Vite application on port `5173`.
+**Try SDK** turns a compatible public GitHub frontend repository into a temporary, shareable live preview. It is a disposable evaluation environment, not a deployment platform. The reliable launch recipes are public Vite and Astro applications, plus dependency-free static HTML sites, all served on port `5173`.
 
 The product endpoint is a usable preview. AI analysis, Playwright screenshots, repository discovery, and parallel launches are explicitly deferred enhancements.
 
@@ -72,7 +72,7 @@ The POST route returns `{ jobId }` before sandbox work completes. `ready` means 
 ### Launch scope
 
 - Accept only public HTTPS GitHub repository URLs.
-- Support Vite/npm first. Require `package.json` and a usable `dev` or `start` script.
+- Support Vite and Astro projects with a usable `dev` or `start` script, plus dependency-free repositories with a root `index.html`. Reject all other stacks clearly.
 - Use `npm ci` first, with a bounded `npm install` fallback.
 - Do not accept secrets, databases, Docker, private packages, or arbitrary host ports.
 - Every meaningful stage calls `emitStatus(jobId, status, message)` with plain-language user-facing text.

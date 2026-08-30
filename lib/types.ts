@@ -49,8 +49,8 @@ export interface Job {
   status: JobStatus
   createdAt: string
   sandboxId?: string
-  framework?: 'vite'
-  packageManager?: 'bun' | 'npm' | 'pnpm' | 'yarn'
+  framework?: 'vite' | 'astro' | 'static'
+  packageManager?: 'bun' | 'npm' | 'pnpm' | 'yarn' | 'none'
   projectRoot?: string
   port?: number
   previewUrl?: string
