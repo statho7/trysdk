@@ -19,7 +19,10 @@ export async function POST(
     emitStatus(jobId, 'DESTROYED', 'Sandbox destroyed')
     return Response.json({ status: 'destroyed' })
   } catch (err) {
-    if (err instanceof DaytonaNotFoundError) {
+    const isAlreadyDeleted = err instanceof DaytonaNotFoundError ||
+      (err instanceof Error && (/DaytonaNotFoundError|Sandbox with ID or name .* not found/i).test(err.message))
+
+    if (isAlreadyDeleted) {
       emitStatus(jobId, 'DESTROYED', 'Sandbox was already removed')
       return Response.json({ status: 'destroyed', alreadyDestroyed: true })
     }

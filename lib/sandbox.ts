@@ -46,6 +46,16 @@ export async function startBackground(
   }
 }
 
+export async function waitForHttpReady(sandbox: Sandbox, port: number, timeoutSeconds = 45): Promise<void> {
+  const command = `for attempt in $(seq 1 ${timeoutSeconds}); do node -e "fetch('http://127.0.0.1:${port}').then(() => process.exit(0)).catch(() => process.exit(1))" && exit 0; sleep 1; done; exit 1`
+  try {
+    const response = await sandbox.process.executeCommand(command, undefined, undefined, timeoutSeconds + 5)
+    if (response.exitCode !== 0) throw new Error(`No HTTP response on port ${port} after ${timeoutSeconds} seconds`)
+  } catch (err) {
+    throw new Error(`Application did not become ready on port ${port}: ${err}`)
+  }
+}
+
 export async function cloneRepo(sandbox: Sandbox, githubUrl: string): Promise<void> {
   try {
     // depth=1 shallow clone — avoids timeouts on large repos with long git histories

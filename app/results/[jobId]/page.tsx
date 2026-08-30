@@ -42,7 +42,7 @@ export default function ResultsPage({ params }: { params: Promise<{ jobId: strin
         }
       }
 
-      if (event.status === 'ERROR') {
+      if (event.status === 'ERROR' || event.status === 'UNSUPPORTED' || event.status === 'DESTROYED') {
         es.close()
         setDone(true)
       }

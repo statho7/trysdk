@@ -1,5 +1,7 @@
 export type JobStatus =
+  | 'CREATING_SANDBOX'
   | 'CLONING'
+  | 'INSPECTING'
   | 'INSTALLING'
   | 'RUNNING'
   | 'READY'
@@ -7,6 +9,7 @@ export type JobStatus =
   | 'DONE'
   | 'DESTROYING'
   | 'DESTROYED'
+  | 'UNSUPPORTED'
   | 'ERROR'
 
 export interface StatusEvent {
@@ -44,6 +47,10 @@ export interface Job {
   status: JobStatus
   createdAt: string
   sandboxId?: string
+  framework?: 'vite'
+  packageManager?: 'npm' | 'pnpm' | 'yarn'
+  projectRoot?: string
+  port?: number
   previewUrl?: string
   previewToken?: string
   result?: EvalResult

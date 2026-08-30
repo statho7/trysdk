@@ -27,7 +27,7 @@ export async function GET(
         lastIndex += newEvents.length
 
         const currentJob = getJob(jobId)
-        if (currentJob?.status === 'DONE' || currentJob?.status === 'DESTROYED' || currentJob?.status === 'ERROR') {
+        if (currentJob?.status === 'DONE' || currentJob?.status === 'DESTROYED' || currentJob?.status === 'UNSUPPORTED' || currentJob?.status === 'ERROR') {
           controller.close()
           if (timer) clearInterval(timer)
         }

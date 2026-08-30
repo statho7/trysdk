@@ -1,7 +1,9 @@
 import type { StatusEvent, JobStatus } from '@/lib/types'
 
 const STATUS_LABELS: Record<JobStatus, string> = {
+  CREATING_SANDBOX: 'Creating sandbox',
   CLONING: 'Cloning',
+  INSPECTING: 'Inspecting project',
   INSTALLING: 'Installing',
   RUNNING: 'Starting app',
   READY: 'App live',
@@ -9,12 +11,13 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   DONE: 'Done',
   DESTROYING: 'Destroying sandbox',
   DESTROYED: 'Sandbox destroyed',
+  UNSUPPORTED: 'Unsupported project',
   ERROR: 'Error',
 }
 
-const STATUS_ORDER: JobStatus[] = ['CLONING', 'INSTALLING', 'RUNNING', 'READY', 'DESTROYING', 'DESTROYED']
+const STATUS_ORDER: JobStatus[] = ['CREATING_SANDBOX', 'CLONING', 'INSPECTING', 'INSTALLING', 'RUNNING', 'READY', 'DESTROYING', 'DESTROYED']
 
-function StatusIcon({ status, isCurrent, isError }: { status: JobStatus; isCurrent: boolean; isError: boolean }) {
+function StatusIcon({ isCurrent, isError }: { isCurrent: boolean; isError: boolean }) {
   if (isError) {
     return (
       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#f85149]/60 bg-[#da3633]/15 text-xs font-bold text-[#f85149]">
@@ -46,7 +49,7 @@ export function StatusFeed({ events }: Props) {
   }
 
   const lastEvent = events[events.length - 1]
-  const isError = lastEvent.status === 'ERROR'
+  const isError = lastEvent.status === 'ERROR' || lastEvent.status === 'UNSUPPORTED'
 
   // Collect the last message per status for display
   const seenStatuses = new Map<JobStatus, StatusEvent>()
@@ -68,7 +71,7 @@ export function StatusFeed({ events }: Props) {
         return (
           <div key={status} className="flex items-start gap-3">
             <div className="flex flex-col items-center">
-              <StatusIcon status={status} isCurrent={isCurrent} isError={isError && idx === visibleStatuses.length - 1} />
+              <StatusIcon isCurrent={isCurrent} isError={isError && idx === visibleStatuses.length - 1} />
               {idx < visibleStatuses.length - 1 && (
                 <div className={`mt-1 min-h-4 w-px flex-1 ${done ? 'bg-[#238636]' : 'bg-[#30363d]'}`} />
               )}
