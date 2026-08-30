@@ -72,7 +72,7 @@ async function runPipeline(job: Job) {
       project.projectRoot,
       message => emitStatus(job.id, 'ANALYZING', message),
     )
-    await emitStatus(job.id, 'ANALYZING', 'Gemini is assessing the screenshot evidence against your goal...')
+    await emitStatus(job.id, 'ANALYZING', `Captured ${screenshots.length} screen${screenshots.length === 1 ? '' : 's'} — Gemini is assessing the evidence against your goal...`)
     const result = await evaluateScreenshots(job.useCase, screenshots)
     await updateJob(job.id, { result: { ...result, jobId: job.id } })
     await emitStatus(job.id, 'DONE', 'Evaluation report is ready')

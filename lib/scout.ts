@@ -15,6 +15,9 @@ const outputDir = process.env.OUTPUT_DIR;
 const previewToken = process.env.PREVIEW_TOKEN;
 const knownRoutes = ['/', '/login', '/signup', '/dashboard', '/settings', '/products', '/admin', '/users'];
 const maxScreenshots = 6;
+const captureBudgetMs = 30_000;
+const routeTimeoutMs = 4_000;
+const screenshotTimeoutMs = 12_000;
 
 const normalizeRoute = (value) => {
   const url = new URL(value, appUrl);
@@ -31,17 +34,24 @@ async function main() {
     extraHTTPHeaders: previewToken ? { 'x-daytona-preview-token': previewToken } : {},
   });
   const page = await context.newPage();
+  page.setDefaultTimeout(routeTimeoutMs);
   const queue = [new URL(appUrl).pathname || '/', ...knownRoutes];
   const visited = new Set();
   const captured = [];
   const failures = [];
+  const deadline = Date.now() + captureBudgetMs;
 
-  while (queue.length && captured.length < maxScreenshots) {
+  while (queue.length && captured.length < maxScreenshots && Date.now() < deadline) {
     const route = queue.shift();
     if (!route || visited.has(route)) continue;
     visited.add(route);
     try {
-      const response = await page.goto(new URL(route, appUrl).toString(), { waitUntil: 'domcontentloaded', timeout: 15_000 });
+      const remainingMs = deadline - Date.now();
+      if (remainingMs <= 0) break;
+      const response = await page.goto(new URL(route, appUrl).toString(), {
+        waitUntil: 'domcontentloaded',
+        timeout: Math.min(routeTimeoutMs, remainingMs),
+      });
       if (!response) {
         failures.push({ route, error: 'Navigation returned no response' });
         continue;
@@ -50,12 +60,19 @@ async function main() {
         failures.push({ route, error: 'Navigation returned HTTP ' + response.status() });
         continue;
       }
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(Math.min(500, Math.max(0, deadline - Date.now())));
+      if (Date.now() >= deadline) break;
       const title = (await page.title()).trim();
-      const heading = (await page.locator('h1').first().textContent().catch(() => '') || '').trim();
+      const heading = (await page.locator('h1').first().textContent({ timeout: 500 }).catch(() => '') || '').trim();
       const description = [title, heading].filter(Boolean).join(' — ') || 'Rendered application screen';
       const fileName = 'screen-' + captured.length + '.jpg';
-      await page.screenshot({ path: join(outputDir, fileName), type: 'jpeg', quality: 65, fullPage: false });
+      await page.screenshot({
+        path: join(outputDir, fileName),
+        type: 'jpeg',
+        quality: 65,
+        fullPage: false,
+        timeout: Math.min(screenshotTimeoutMs, Math.max(1, deadline - Date.now())),
+      });
       captured.push({ route, description, fileName });
 
       const hrefs = await page.locator('a[href]').evaluateAll(links => links.map(link => link.href));
@@ -104,11 +121,11 @@ export async function captureScreenshots(
   )
   if (install.exitCode !== 0) throw new Error(`Could not prepare Playwright: ${install.result.slice(-500)}`)
 
-  await onProgress?.('Exploring the running app and capturing screenshots...')
+  await onProgress?.('Capturing as much screenshot evidence as possible over the next 30 seconds...')
   const scan = await execCommand(
     sandbox,
     'rm -rf .trysdk-scout-output && node /root/workspace/evaluator/scout.mjs',
-    150,
+    45,
     {
       // The browser runs in the sandbox alongside Vite. Using localhost avoids
       // routing its own requests through the external preview proxy.
