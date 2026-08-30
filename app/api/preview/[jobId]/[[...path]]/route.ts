@@ -13,8 +13,8 @@ async function proxyPreview(request: Request, { params }: Context): Promise<Resp
   }
 
   const upstream = new URL(job.previewProxyUrl)
-  // Vite was started with this exact base path. Preserve it at the upstream
-  // too: sending `/` makes Vite redirect to the base and causes a loop.
+  // Supported adapters are started with this exact base path. Preserve it at
+  // the upstream too: sending `/` causes base-aware dev servers to redirect.
   const basePath = `/api/preview/${jobId}`
   upstream.pathname = `${basePath}/${path.join('/')}`
   upstream.search = new URL(request.url).search
@@ -37,6 +37,13 @@ async function proxyPreview(request: Request, { params }: Context): Promise<Resp
   responseHeaders.delete('content-encoding')
   responseHeaders.delete('content-length')
   responseHeaders.set('Cache-Control', 'no-store')
+  // Static sites commonly use root-relative assets. They do not know their
+  // preview is mounted under a Try SDK route, so prefix those URLs for the iframe.
+  if (job.framework === 'static' && upstreamResponse.headers.get('content-type')?.includes('text/html')) {
+    const base = `/api/preview/${jobId}/`
+    const html = (await upstreamResponse.text()).replace(/\b(href|src|action)=(['"])\/(?!\/)/gi, `$1=$2${base}`)
+    return new Response(html, { status: upstreamResponse.status, headers: responseHeaders })
+  }
   return new Response(upstreamResponse.body, { status: upstreamResponse.status, headers: responseHeaders })
 }
 

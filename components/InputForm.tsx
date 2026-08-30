@@ -6,7 +6,7 @@ interface SearchResult {
   fullName: string
   url: string
   excerpt: string
-  vite: boolean | null
+  stack: 'vite' | 'astro' | 'static' | null
 }
 
 const REPO_URL_PATTERN = /github\.com\/[^/\s]+\/[^/\s]+/i
@@ -127,14 +127,14 @@ export function InputForm() {
                   <span className="block truncate font-mono text-[13px] text-[#58a6ff]">{result.fullName}</span>
                   {result.excerpt && <span className="block truncate text-xs text-[#6e7681]">{result.excerpt}</span>}
                 </span>
-                {result.vite && <span className="shrink-0 rounded-full border border-[#3fb950]/40 px-2 py-0.5 text-[11px] text-[#3fb950]">vite ✓</span>}
+                {result.stack && <span className="shrink-0 rounded-full border border-[#3fb950]/40 px-2 py-0.5 text-[11px] text-[#3fb950]">{result.stack} ✓</span>}
               </button>
             ))
           )}
         </div>
       )}
       {error && <p role="alert" className="mt-3 text-sm text-[#f85149]">{error}</p>}
-      <p className="mt-3 text-xs leading-5 text-[#6e7681]">Works with public Vite projects — React, Vue, Svelte, Solid, and vanilla JS. We explore the running preview, capture screenshots, then compare the visible product to your goal.</p>
+      <p className="mt-3 text-xs leading-5 text-[#6e7681]">Works with public Vite and Astro projects, plus dependency-free static HTML sites. Other stacks return a clear compatibility message before dependencies install.</p>
 
       <section aria-labelledby="examples-heading" className="mt-7">
         <h2 id="examples-heading" className="mb-2 text-xs font-semibold text-[#8b949e]">Verified examples</h2>
