@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-geist-sans), -apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  --font-heading: var(--font-geist-sans), -apple-system, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -46,6 +46,54 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* GitHub Primer semantic tokens — light (default) */
+:root {
+  --gh-canvas: #ffffff;
+  --gh-canvas-inset: #f6f8fa;
+  --gh-surface: #f6f8fa;
+  --gh-surface-2: #eaeef2;
+  --gh-border: #d0d7de;
+  --gh-border-muted: #d8dee4;
+  --gh-fg: #1f2328;
+  --gh-fg-body: #24292f;
+  --gh-fg-muted: #656d76;
+  --gh-fg-subtle: #6e7781;
+  --gh-accent: #0969da;
+  --gh-accent-emphasis: #0969da;
+  --gh-success: #1a7f37;
+  --gh-success-emphasis: #1f883d;
+  --gh-success-hover: #1a7f37;
+  --gh-danger: #d1242f;
+  --gh-danger-emphasis: #cf222e;
+  --gh-attention: #9a6700;
+  --gh-overlay: rgba(31, 35, 40, 0.5);
+  --gh-card-shadow: 0 16px 48px rgba(31, 35, 40, 0.08);
+}
+
+/* GitHub Primer semantic tokens — dark */
+.dark {
+  --gh-canvas: #0d1117;
+  --gh-canvas-inset: #010409;
+  --gh-surface: #161b22;
+  --gh-surface-2: #1c2128;
+  --gh-border: #30363d;
+  --gh-border-muted: #21262d;
+  --gh-fg: #f0f6fc;
+  --gh-fg-body: #c9d1d9;
+  --gh-fg-muted: #8b949e;
+  --gh-fg-subtle: #6e7681;
+  --gh-accent: #58a6ff;
+  --gh-accent-emphasis: #1f6feb;
+  --gh-success: #3fb950;
+  --gh-success-emphasis: #238636;
+  --gh-success-hover: #2ea043;
+  --gh-danger: #f85149;
+  --gh-danger-emphasis: #da3633;
+  --gh-attention: #d29922;
+  --gh-overlay: rgba(1, 4, 9, 0.8);
+  --gh-card-shadow: 0 16px 48px rgba(1, 4, 9, 0.18);
 }
 
 :root {
