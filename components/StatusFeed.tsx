@@ -20,20 +20,20 @@ const STATUS_ORDER: JobStatus[] = ['CREATING_SANDBOX', 'CLONING', 'INSPECTING', 
 function StatusIcon({ isCurrent, isError }: { isCurrent: boolean; isError: boolean }) {
   if (isError) {
     return (
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#f85149]/60 bg-[#da3633]/15 text-xs font-bold text-[#f85149]">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--gh-danger)]/60 bg-[var(--gh-danger-emphasis)]/15 text-xs font-bold text-[var(--gh-danger)]">
         ✕
       </div>
     )
   }
   if (isCurrent) {
     return (
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#58a6ff]/70 bg-[#1f6feb]/15">
-        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#58a6ff]" />
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--gh-accent)]/70 bg-[var(--gh-accent-emphasis)]/15">
+        <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[var(--gh-accent)]" />
       </div>
     )
   }
   return (
-    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#238636] bg-[#238636]/15 text-xs text-[#3fb950]">
+    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--gh-success-emphasis)] bg-[var(--gh-success-emphasis)]/15 text-xs text-[var(--gh-success)]">
       ✓
     </div>
   )
@@ -45,7 +45,7 @@ interface Props {
 
 export function StatusFeed({ events }: Props) {
   if (events.length === 0) {
-    return <p className="text-sm text-[#8b949e]">Preparing your sandbox…</p>
+    return <p className="text-sm text-[var(--gh-fg-muted)]">Preparing your sandbox…</p>
   }
 
   const lastEvent = events[events.length - 1]
@@ -86,15 +86,15 @@ export function StatusFeed({ events }: Props) {
             <div className="flex flex-col items-center">
               <StatusIcon isCurrent={isCurrent} isError={isError && idx === visibleStatuses.length - 1} />
               {idx < visibleStatuses.length - 1 && (
-                <div className={`mt-1 min-h-4 w-px flex-1 ${done ? 'bg-[#238636]' : 'bg-[#30363d]'}`} />
+                <div className={`mt-1 min-h-4 w-px flex-1 ${done ? 'bg-[var(--gh-success-emphasis)]' : 'bg-[var(--gh-border)]'}`} />
               )}
             </div>
             <div className="pb-3">
-              <p className={`text-sm font-medium ${isCurrent ? 'text-[#58a6ff]' : isError && idx === visibleStatuses.length - 1 ? 'text-[#f85149]' : 'text-[#3fb950]'}`}>
+              <p className={`text-sm font-medium ${isCurrent ? 'text-[var(--gh-accent)]' : isError && idx === visibleStatuses.length - 1 ? 'text-[var(--gh-danger)]' : 'text-[var(--gh-success)]'}`}>
                 {STATUS_LABELS[status]}
               </p>
-              <p className="mt-0.5 text-xs text-[#8b949e]">{event.message}</p>
-              <p className="mt-0.5 text-xs text-[#6e7681]">
+              <p className="mt-0.5 text-xs text-[var(--gh-fg-muted)]">{event.message}</p>
+              <p className="mt-0.5 text-xs text-[var(--gh-fg-subtle)]">
                 {new Date(event.timestamp).toLocaleTimeString()}
               </p>
             </div>

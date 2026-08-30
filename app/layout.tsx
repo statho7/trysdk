@@ -12,8 +12,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`}>
-      <body className="min-h-screen bg-[#0d1117] antialiased">{children}</body>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} dark`} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('trysdk-theme')==='light')document.documentElement.classList.remove('dark')}catch(e){}`,
+          }}
+        />
+      </head>
+      <body className="min-h-screen bg-[var(--gh-canvas)] antialiased">{children}</body>
     </html>
   )
 }
